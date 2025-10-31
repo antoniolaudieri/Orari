@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { deleteHistory } from '../../lib/db';
-import { getUserIdFromRequest } from '../../lib/auth';
+import { deleteHistory } from '../lib/db';
+import { getUserIdFromRequest } from '../lib/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'DELETE') {

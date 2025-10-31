@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Type } from '@google/genai';
-import { addHistory } from '../lib/db';
-import { getUserIdFromRequest } from '../lib/auth';
+import { addHistory } from './lib/db';
+import { getUserIdFromRequest } from './lib/auth';
 import formidable from 'formidable';
 import fs from 'fs';
 
