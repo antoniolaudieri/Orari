@@ -57,13 +57,17 @@ export const analyzeScheduleImage = async (
   base64Image: string,
   mimeType: string
 ): Promise<{ schedule: DaySchedule[], summary: string }> => {
+  // ATTENZIONE: La chiave API è inserita direttamente nel codice per facilitare i test.
+  // Questa pratica è SCONSIGLIATA per applicazioni in produzione.
+  // Per un'applicazione reale, utilizzare sempre le variabili d'ambiente per motivi di sicurezza.
+  const apiKey = "INSERISCI_QUI_LA_TUA_CHIAVE_API_GEMINI"; // <--- SOSTITUISCI CON LA TUA CHIAVE API VALIDA
+
+  if (!apiKey || apiKey === "INSERISCI_QUI_LA_TUA_CHIAVE_API_GEMINI") {
+    throw new Error("Manca la chiave API di Gemini. Per favore, modifica il file 'services/geminiService.ts' e inserisci la tua chiave per continuare.");
+  }
+
   try {
-    // NOTE: API key check and AI client initialization is moved here to prevent 
-    // the app from crashing on startup if the environment variable is not set.
-    if (!process.env.API_KEY) {
-      throw new Error("API_KEY environment variable is not set. Please configure it in your deployment environment.");
-    }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
     const imagePart = {
       inlineData: {
@@ -88,7 +92,6 @@ The image is a table. Follow these steps carefully:
 5.  **Summary:** Provide a brief, friendly, and confidential summary in Italian addressed directly to the user.`,
     };
 
-    // FIX: Completed the function to call the Gemini API and return the result.
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: { parts: [imagePart, textPart] },
@@ -100,22 +103,21 @@ The image is a table. Follow these steps carefully:
 
     const jsonStr = response.text.trim();
     if (!jsonStr) {
-      throw new Error("Received empty response from the AI model.");
+      throw new Error("L'IA non ha restituito alcun risultato. L'immagine potrebbe non essere chiara.");
     }
 
     const result = JSON.parse(jsonStr) as { schedule: DaySchedule[], summary: string };
 
     if (!result || !result.schedule || !result.summary) {
-        throw new Error("AI model returned data in an unexpected format.");
+        throw new Error("L'IA ha restituito dati in un formato inaspettato. Riprova con un'immagine più chiara.");
     }
 
     return result;
 
   } catch (err) {
-    console.error("Error analyzing schedule image:", err);
-    if (err instanceof Error) {
-        throw new Error(`Failed to analyze image: ${err.message}`);
-    }
-    throw new Error("An unknown error occurred during image analysis.");
+    console.error("Errore durante l'analisi con Gemini:", err);
+    const errorMessage = err instanceof Error ? err.message : 'Errore sconosciuto';
+    // Provide a more helpful, user-facing error message that suggests checking the API key
+    throw new Error(`Analisi fallita. L'IA ha restituito un errore. Controlla che la tua chiave API sia valida e attiva. (Dettaglio tecnico: ${errorMessage})`);
   }
 };

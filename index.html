@@ -2,16 +2,16 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="./icon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Analizzatore Turni Appiani</title>
 
     <!-- PWA & Mobile Optimization -->
     <meta name="theme-color" content="#0B0F19">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="/icon-192x192.png">
+    <link rel="apple-touch-icon" href="./icon-192x192.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
   <script type="importmap">
@@ -89,11 +89,11 @@
 </head>
   <body class="text-gray-100">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then(registration => {
+          navigator.serviceWorker.register('./sw.js').then(registration => {
             console.log('Service Worker: Registrazione avvenuta con successo!', registration);
           }).catch(registrationError => {
             console.log('Service Worker: Registrazione fallita:', registrationError);
