@@ -19,6 +19,7 @@
     "@types/formidable": "^3.4.5",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
+    "@vercel/node": "^3.2.0",
     "esbuild": "^0.23.0",
     "typescript": "^5.2.2"
   }

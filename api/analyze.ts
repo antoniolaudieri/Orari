@@ -119,11 +119,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 systemInstruction,
                 responseMimeType: "application/json",
                 responseSchema: jsonSchema,
+                safetySettings,
             },
-            safetySettings,
         });
 
-        const jsonString = response.text.trim();
+        const jsonString = response.text?.trim();
+        if (!jsonString) {
+            throw new Error("L'analisi IA non ha restituito un testo valido.");
+        }
         const analysisResult = JSON.parse(jsonString);
 
         const historyEntry = {
