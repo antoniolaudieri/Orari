@@ -1,14 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { DaySchedule } from '../types';
 
-// NOTE: This check is for a local dev environment.
-// In a real application, the API key should be securely managed.
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const scheduleSchema = {
   type: Type.OBJECT,
   properties: {
@@ -66,6 +58,13 @@ export const analyzeScheduleImage = async (
   mimeType: string
 ): Promise<{ schedule: DaySchedule[], summary: string }> => {
   try {
+    // NOTE: API key check and AI client initialization is moved here to prevent 
+    // the app from crashing on startup if the environment variable is not set.
+    if (!process.env.API_KEY) {
+      throw new Error("API_KEY environment variable is not set. Please configure it in your deployment environment.");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
     const imagePart = {
       inlineData: {
         data: base64Image,
@@ -86,36 +85,37 @@ The image is a table. Follow these steps carefully:
     *   **Rest Day:** If the cell contains 'R' (for Riposo), a dash '-', is completely blank, or has a line drawn through it, the day type is 'rest'. There are no shifts.
     *   **Flagging Uncertainty:** If you are not confident about the data for a specific day (e.g., the image is blurry, the handwriting is hard to read, a time is ambiguous), you MUST set the 'isUncertain' flag to true for that day's object. This is crucial for user feedback.
 4.  **Format the Output:** Return a JSON object that strictly adheres to the provided schema. The 'schedule' array must contain exactly 7 day objects, corresponding to the week found in the image, ordered from Monday to Sunday. The 'date' for each object must be the full 'YYYY-MM-DD' date you determined in step 2.
-5.  **Summary:** Provide a brief, friendly, and confidential summary in Italian addressed directly to the user, whose name is Ilaria. Do not mention the name "Appiani" in the summary. For example, start with "Ciao Ilaria, ecco un riepilogo della tua settimana..." or a similar direct and personal tone.
-`,
+5.  **Summary:** Provide a brief, friendly, and confidential summary in Italian addressed directly to the user.`,
     };
 
+    // FIX: Completed the function to call the Gemini API and return the result.
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: "gemini-2.5-flash",
       contents: { parts: [imagePart, textPart] },
       config: {
-        responseMimeType: 'application/json',
+        responseMimeType: "application/json",
         responseSchema: scheduleSchema,
       },
     });
 
-    const jsonText = response.text.trim();
-    const parsedResponse = JSON.parse(jsonText);
-
-    if (!parsedResponse.schedule || parsedResponse.schedule.length !== 7) {
-        throw new Error("Invalid schedule format received from AI. The AI did not return data for exactly 7 days.");
+    const jsonStr = response.text.trim();
+    if (!jsonStr) {
+      throw new Error("Received empty response from the AI model.");
     }
 
-    return {
-        schedule: parsedResponse.schedule,
-        summary: parsedResponse.summary,
-    };
+    const result = JSON.parse(jsonStr) as { schedule: DaySchedule[], summary: string };
 
-  } catch (error) {
-    console.error('Error analyzing schedule image with Gemini:', error);
-    if (error instanceof Error) {
-        throw new Error(`Failed to analyze schedule: ${error.message}`);
+    if (!result || !result.schedule || !result.summary) {
+        throw new Error("AI model returned data in an unexpected format.");
     }
-    throw new Error('An unknown error occurred during schedule analysis.');
+
+    return result;
+
+  } catch (err) {
+    console.error("Error analyzing schedule image:", err);
+    if (err instanceof Error) {
+        throw new Error(`Failed to analyze image: ${err.message}`);
+    }
+    throw new Error("An unknown error occurred during image analysis.");
   }
 };
