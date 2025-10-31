@@ -2,20 +2,7 @@
   "short_name": "Orario AI",
   "name": "Orario Intelligente Appiani",
   "description": "Analizza i tuoi turni di lavoro con l'IA, direttamente da una foto.",
-  "icons": [
-    {
-      "src": "/icon-192x192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512x512.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
-    }
-  ],
+  "icons": [],
   "start_url": "/",
   "display": "standalone",
   "scope": "/",
