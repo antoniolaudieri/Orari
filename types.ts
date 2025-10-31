@@ -11,7 +11,7 @@ export interface DaySchedule {
 }
 
 export interface AnalysisEntry {
-  id: number; // Timestamp
+  id: number; // Database primary key
   dateRange: string;
   schedule: DaySchedule[];
   summary: string;

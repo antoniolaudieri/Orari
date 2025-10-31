@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { DaySchedule, AnalysisEntry } from './types';
 import { getWeekDays, formatDate } from './utils/dateUtils';
-import { analyzeScheduleImage } from './services/geminiService';
 
 import { ImageUploader } from './components/ImageUploader';
 import { WeekNavigator } from './components/WeekNavigator';
@@ -16,7 +15,6 @@ import { ViewSwitcher } from './components/ViewSwitcher';
 import { MonthCalendar } from './components/MonthCalendar';
 import { HistoryPanel } from './components/HistoryPanel';
 import { DayDetailView } from './components/DayDetailView';
-import { ApiKeyModal } from './components/ApiKeyModal';
 
 const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -40,9 +38,6 @@ const App: React.FC = () => {
 
   const [now, setNow] = useState(new Date());
 
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
@@ -50,30 +45,22 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-
   useEffect(() => {
-    try {
-      const savedHistory = localStorage.getItem('scheduleHistory');
-      if (savedHistory) {
-        setHistory(JSON.parse(savedHistory));
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch('/api/history');
+        if (!response.ok) {
+          throw new Error('Impossibile recuperare lo storico dal server.');
+        }
+        const savedHistory = await response.json();
+        setHistory(savedHistory);
+      } catch (e) {
+        console.error("Errore nel caricare lo storico:", e);
+        setError(e instanceof Error ? e.message : 'Errore sconosciuto nel caricamento dati.');
       }
-      const savedApiKey = localStorage.getItem('geminiApiKey');
-      if (savedApiKey) {
-        setApiKey(savedApiKey);
-      } else {
-        setIsApiKeyModalOpen(true);
-      }
-    } catch (e) {
-      console.error("Failed to load data from localStorage", e);
-    }
+    };
+    fetchHistory();
   }, []);
-
-  const handleSaveApiKey = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem('geminiApiKey', key);
-    setIsApiKeyModalOpen(false);
-  };
-
 
   const weekInfo = useMemo(() => getWeekDays(currentDate), [currentDate]);
   const weekDayNames = useMemo(() => weekInfo.map(d => d.name), [weekInfo]);
@@ -96,12 +83,6 @@ const App: React.FC = () => {
     });
 
   const handleAnalyze = async (file: File) => {
-    if (!apiKey) {
-      setError("La chiave API di Gemini è necessaria per l'analisi. Per favore, inseriscila nelle impostazioni.");
-      setIsApiKeyModalOpen(true);
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
     setAnalysisSummary(null);
@@ -109,32 +90,32 @@ const App: React.FC = () => {
 
     try {
       const base64Image = await fileToBase64(file);
-      const result = await analyzeScheduleImage(base64Image, file.type, apiKey);
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64Image, mimeType: file.type }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Analisi fallita. Riprova.');
+      }
+
+      const newEntry: AnalysisEntry = await response.json();
       
       const updatedSchedules: Record<string, DaySchedule> = { ...allSchedules };
-      result.schedule.forEach(day => {
+      newEntry.schedule.forEach(day => {
         updatedSchedules[day.date] = day;
       });
       setAllSchedules(updatedSchedules);
-      setAnalysisSummary(result.summary);
+      setAnalysisSummary(newEntry.summary);
 
-      if (result.schedule && result.schedule.length > 0) {
-        const firstDay = new Date(result.schedule[0].date + 'T12:00:00Z');
+      if (newEntry.schedule && newEntry.schedule.length > 0) {
+        const firstDay = new Date(newEntry.schedule[0].date + 'T12:00:00Z');
         setCurrentDate(firstDay);
-
-        // Save to history
-        const newEntry: AnalysisEntry = {
-          id: Date.now(),
-          dateRange: `Settimana del ${firstDay.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}`,
-          schedule: result.schedule,
-          summary: result.summary,
-          imageData: base64Image,
-          mimeType: file.type,
-        };
-        const updatedHistory = [...history, newEntry];
-        setHistory(updatedHistory);
-        localStorage.setItem('scheduleHistory', JSON.stringify(updatedHistory));
       }
+
+      setHistory(prevHistory => [newEntry, ...prevHistory]);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -159,12 +140,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteEntry = (id: number) => {
+  const handleDeleteEntry = async (id: number) => {
+    const originalHistory = [...history];
     const updatedHistory = history.filter(e => e.id !== id);
-    setHistory(updatedHistory);
-    localStorage.setItem('scheduleHistory', JSON.stringify(updatedHistory));
-  };
+    setHistory(updatedHistory); // Optimistic update
 
+    try {
+      const response = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error("Impossibile eliminare l'elemento dal server.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Errore nell'eliminazione.");
+      setHistory(originalHistory); // Rollback on failure
+    }
+  };
 
   const handlePreviousWeek = () => {
     const newDate = new Date(currentDate);
@@ -213,12 +204,6 @@ const App: React.FC = () => {
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
       {isLoading && <LoadingOverlay />}
-      <ApiKeyModal
-        isOpen={isApiKeyModalOpen}
-        onClose={() => setIsApiKeyModalOpen(false)}
-        onSave={handleSaveApiKey}
-        currentApiKey={apiKey}
-      />
       <ShiftModal 
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -253,13 +238,6 @@ const App: React.FC = () => {
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
               Storico
-            </button>
-            <button 
-              onClick={() => setIsApiKeyModalOpen(true)}
-              className="p-2.5 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors transform hover:-translate-y-0.5"
-              title="Impostazioni API Key"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
         </header>
