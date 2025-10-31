@@ -1,0 +1,5 @@
+{
+  "name": "Analizzatore Turni ",
+  "description": "Un'applicazione web che utilizza l'IA per leggere e interpretare una foto dell'orario di lavoro settimanale di Appiani. Visualizza i turni su un calendario interattivo e calcola il monte ore settimanale.",
+  "requestFramePermissions": []
+}
