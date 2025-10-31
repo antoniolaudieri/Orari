@@ -68,7 +68,7 @@ export const getMonthGrid = (date: Date): { date: Date; isCurrentMonth: boolean 
   const firstDayOfMonth = new Date(year, month, 1);
   const lastDayOfMonth = new Date(year, month + 1, 0);
 
-  const grid = [];
+  const grid: { date: Date; isCurrentMonth: boolean }[] = [];
 
   // Get start day of week (Monday is 1, Sunday is 0)
   const firstDayOfWeek = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;

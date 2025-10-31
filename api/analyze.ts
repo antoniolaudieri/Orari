@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Type } from '@google/genai';
 import { addHistory } from './lib/db';
 import { getUserIdFromRequest } from './lib/auth';
-import formidable from 'formidable';
+import formidable, { File } from 'formidable';
 import fs from 'fs';
 
 // Disabilita il body parser di Vercel per gestire il multipart/form-data
@@ -93,12 +93,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const { files } = await parseForm(req);
-        const imageFile = files.image;
+        const imageFiles = files.image;
 
-        if (!imageFile || Array.isArray(imageFile)) {
+        if (!imageFiles || imageFiles.length === 0) {
              return res.status(400).json({ error: 'Nessuna immagine fornita.' });
         }
 
+        const imageFile = imageFiles[0];
         const filePath = imageFile.filepath;
         const mimeType = imageFile.mimetype || 'image/jpeg';
         
@@ -119,8 +120,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 systemInstruction,
                 responseMimeType: "application/json",
                 responseSchema: jsonSchema,
-                safetySettings,
             },
+            safetySettings,
         });
 
         const jsonString = response.text?.trim();
