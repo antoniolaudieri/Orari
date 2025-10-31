@@ -4,10 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "echo 'Build step not required for this project.' && exit 0",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "build": "mkdir public && cp App.tsx index.html index.tsx manifest.json metadata.json sw.js types.ts public/ && cp -r components utils public/ && (cp icon*.png public/ 2>/dev/null || :)",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "@google/genai": "^1.28.0",
