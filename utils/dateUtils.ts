@@ -95,16 +95,16 @@ export const getMonthGrid = (date: Date): { date: Date; isCurrentMonth: boolean 
   
   // Ensure the grid has 35 or 42 cells
   while (grid.length < 35) {
-      const lastDate = grid[grid.length - 1].date;
-      const nextDate = new Date(lastDate);
+      const lastDate: Date = grid[grid.length - 1].date;
+      const nextDate: Date = new Date(lastDate);
       nextDate.setDate(lastDate.getDate() + 1);
       grid.push({ date: nextDate, isCurrentMonth: false });
   }
 
   if (grid.length > 35) {
       while(grid.length < 42) {
-        const lastDate = grid[grid.length - 1].date;
-        const nextDate = new Date(lastDate);
+        const lastDate: Date = grid[grid.length - 1].date;
+        const nextDate: Date = new Date(lastDate);
         nextDate.setDate(lastDate.getDate() + 1);
         grid.push({ date: nextDate, isCurrentMonth: false });
       }

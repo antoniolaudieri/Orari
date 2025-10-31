@@ -95,11 +95,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { files } = await parseForm(req);
         const imageFiles = files.image;
 
-        if (!imageFiles || imageFiles.length === 0) {
+        if (!imageFiles) {
              return res.status(400).json({ error: 'Nessuna immagine fornita.' });
         }
 
-        const imageFile = imageFiles[0];
+        const imageFile = Array.isArray(imageFiles) ? imageFiles[0] : imageFiles;
+        
+        if (!imageFile) {
+            return res.status(400).json({ error: 'Nessuna immagine valida trovata.' });
+        }
+        
         const filePath = imageFile.filepath;
         const mimeType = imageFile.mimetype || 'image/jpeg';
         
@@ -120,10 +125,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 systemInstruction,
                 responseMimeType: "application/json",
                 responseSchema: jsonSchema,
+                safetySettings,
             },
-            safetySettings,
         });
-
+        
         const jsonString = response.text?.trim();
         if (!jsonString) {
             throw new Error("L'analisi IA non ha restituito un testo valido.");
