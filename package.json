@@ -1,6 +1,9 @@
 {
   "name": "orario-intelligente",
   "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'Nessun build step necessario per il frontend, Vercel gestirà i file statici e le API.'"
+  },
   "dependencies": {
     "@google/genai": "^1.28.0",
     "@vercel/postgres": "^0.9.0",
