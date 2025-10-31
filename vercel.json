@@ -1,4 +1,3 @@
 {
-  "outputDirectory": "dist",
-  "installCommand": "npm cache clean --force && npm install"
+  "outputDirectory": "dist"
 }
