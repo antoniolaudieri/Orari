@@ -4,20 +4,22 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "mkdir public && cp App.tsx index.html index.tsx manifest.json metadata.json sw.js types.ts public/ && cp -r components utils public/ && (cp icon*.png public/ 2>/dev/null || :)",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "build": "esbuild index.tsx --bundle --outfile=dist/index.js --jsx=automatic --format=esm --external:react --external:react-dom/* && cp index.html manifest.json sw.js dist/ && (cp icon*.png dist/ 2>/dev/null || :)"
   },
   "dependencies": {
     "@google/genai": "^1.28.0",
     "@vercel/postgres": "^0.10.0",
     "cookie": "^0.6.0",
+    "formidable": "^3.5.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/cookie": "^0.6.0",
+    "@types/formidable": "^3.4.5",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
+    "esbuild": "^0.23.0",
     "typescript": "^5.2.2"
   }
 }

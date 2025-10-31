@@ -2,7 +2,7 @@ const CACHE_NAME = 'orario-intelligente-cache-v1';
 const urlsToCache = [
   './',
   './index.html',
-  './index.tsx',
+  './index.js',
   './icon-192x192.png',
   './icon-512x512.png'
   // Aggiungi qui altre risorse statiche se necessario
