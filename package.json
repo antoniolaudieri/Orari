@@ -1,19 +1,25 @@
 {
   "name": "orario-intelligente",
-  "version": "1.0.0",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "build": "echo 'Nessun build step necessario per il frontend, Vercel gestirà i file statici e le API.'"
+    "dev": "vite",
+    "build": "echo 'Build step not required for this project.' && exit 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.28.0",
-    "@vercel/postgres": "^0.9.0",
+    "@vercel/postgres": "^0.10.0",
     "cookie": "^0.6.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/cookie": "^0.6.0",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0"
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "typescript": "^5.2.2"
   }
 }

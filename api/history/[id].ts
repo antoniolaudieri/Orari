@@ -1,33 +1,28 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { deleteHistory } from '../../lib/db';
-import { getSessionId } from '../../lib/session';
+import { getUserIdFromRequest } from '../../lib/auth';
 
-export const config = {
-  runtime: 'edge',
-};
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (req.method !== 'DELETE') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
+    }
 
-export default async function handler(req: Request) {
-  if (req.method !== 'DELETE') {
-    return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });
-  }
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-  const sessionId = getSessionId(req);
-  if (!sessionId) {
-    return new Response(JSON.stringify({ message: 'Non autorizzato' }), { status: 401 });
-  }
+    const { id } = req.query;
 
-  const url = new URL(req.url);
-  const idStr = url.pathname.split('/').pop();
-  const id = idStr ? parseInt(idStr, 10) : NaN;
+    if (!id || typeof id !== 'string') {
+        return res.status(400).json({ error: 'Invalid ID' });
+    }
 
-  if (isNaN(id)) {
-    return new Response(JSON.stringify({ message: 'ID non valido' }), { status: 400 });
-  }
-
-  try {
-    await deleteHistory(id, sessionId);
-    return new Response(null, { status: 204 });
-  } catch (error) {
-    console.error(`Errore nell'eliminare l'elemento ${id}:`, error);
-    return new Response(JSON.stringify({ message: 'Errore interno del server' }), { status: 500 });
-  }
+    try {
+        await deleteHistory(parseInt(id, 10), userId);
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error(`Failed to delete history item ${id}:`, error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 }
