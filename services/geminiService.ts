@@ -55,15 +55,11 @@ const scheduleSchema = {
 
 export const analyzeScheduleImage = async (
   base64Image: string,
-  mimeType: string
+  mimeType: string,
+  apiKey: string
 ): Promise<{ schedule: DaySchedule[], summary: string }> => {
-  // ATTENZIONE: La chiave API è inserita direttamente nel codice per facilitare i test.
-  // Questa pratica è SCONSIGLIATA per applicazioni in produzione.
-  // Per un'applicazione reale, utilizzare sempre le variabili d'ambiente per motivi di sicurezza.
-  const apiKey = "INSERISCI_QUI_LA_TUA_CHIAVE_API_GEMINI"; // <--- SOSTITUISCI CON LA TUA CHIAVE API VALIDA
-
-  if (!apiKey || apiKey === "INSERISCI_QUI_LA_TUA_CHIAVE_API_GEMINI") {
-    throw new Error("Manca la chiave API di Gemini. Per favore, modifica il file 'services/geminiService.ts' e inserisci la tua chiave per continuare.");
+  if (!apiKey) {
+    throw new Error("Manca la chiave API di Gemini. Per favore, inseriscila nelle impostazioni per continuare.");
   }
 
   try {
@@ -117,7 +113,6 @@ The image is a table. Follow these steps carefully:
   } catch (err) {
     console.error("Errore durante l'analisi con Gemini:", err);
     const errorMessage = err instanceof Error ? err.message : 'Errore sconosciuto';
-    // Provide a more helpful, user-facing error message that suggests checking the API key
     throw new Error(`Analisi fallita. L'IA ha restituito un errore. Controlla che la tua chiave API sia valida e attiva. (Dettaglio tecnico: ${errorMessage})`);
   }
 };

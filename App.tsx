@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import type { DaySchedule, AnalysisEntry } from './types';
 import { getWeekDays, formatDate } from './utils/dateUtils';
@@ -17,6 +16,7 @@ import { ViewSwitcher } from './components/ViewSwitcher';
 import { MonthCalendar } from './components/MonthCalendar';
 import { HistoryPanel } from './components/HistoryPanel';
 import { DayDetailView } from './components/DayDetailView';
+import { ApiKeyModal } from './components/ApiKeyModal';
 
 const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -40,6 +40,9 @@ const App: React.FC = () => {
 
   const [now, setNow] = useState(new Date());
 
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
@@ -54,20 +57,28 @@ const App: React.FC = () => {
       if (savedHistory) {
         setHistory(JSON.parse(savedHistory));
       }
+      const savedApiKey = localStorage.getItem('geminiApiKey');
+      if (savedApiKey) {
+        setApiKey(savedApiKey);
+      } else {
+        setIsApiKeyModalOpen(true);
+      }
     } catch (e) {
-      console.error("Failed to load history from localStorage", e);
-      // Handle potential corrupted data
-      localStorage.removeItem('scheduleHistory');
+      console.error("Failed to load data from localStorage", e);
     }
   }, []);
+
+  const handleSaveApiKey = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem('geminiApiKey', key);
+    setIsApiKeyModalOpen(false);
+  };
+
 
   const weekInfo = useMemo(() => getWeekDays(currentDate), [currentDate]);
   const weekDayNames = useMemo(() => weekInfo.map(d => d.name), [weekInfo]);
 
   useEffect(() => {
-    // FIX: Add explicit return type `DaySchedule` to the map callback.
-    // This provides contextual typing, ensuring the fallback object's `type` property
-    // is correctly inferred as the literal type 'empty' instead of being widened to 'string'.
     const newWeekSchedule = weekInfo.map((dayInfo): DaySchedule => {
       const dateStr = formatDate(dayInfo.date);
       return allSchedules[dateStr] || { date: dateStr, type: 'empty', shifts: [] };
@@ -85,6 +96,12 @@ const App: React.FC = () => {
     });
 
   const handleAnalyze = async (file: File) => {
+    if (!apiKey) {
+      setError("La chiave API di Gemini è necessaria per l'analisi. Per favore, inseriscila nelle impostazioni.");
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setAnalysisSummary(null);
@@ -92,7 +109,7 @@ const App: React.FC = () => {
 
     try {
       const base64Image = await fileToBase64(file);
-      const result = await analyzeScheduleImage(base64Image, file.type);
+      const result = await analyzeScheduleImage(base64Image, file.type, apiKey);
       
       const updatedSchedules: Record<string, DaySchedule> = { ...allSchedules };
       result.schedule.forEach(day => {
@@ -134,7 +151,6 @@ const App: React.FC = () => {
             return acc;
         }, {} as Record<string, DaySchedule>);
 
-        // Combine with existing schedules, giving priority to the loaded entry
         setAllSchedules(prev => ({...prev, ...schedulesMap}));
         setAnalysisSummary(entry.summary);
         setCurrentDate(new Date(entry.schedule[0].date + 'T12:00:00Z'));
@@ -197,6 +213,12 @@ const App: React.FC = () => {
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
       {isLoading && <LoadingOverlay />}
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={handleSaveApiKey}
+        currentApiKey={apiKey}
+      />
       <ShiftModal 
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -222,15 +244,24 @@ const App: React.FC = () => {
             <h1 className="text-3xl font-bold text-teal-400" style={{ animation: 'text-glow 2s ease-in-out infinite' }}>Orario Intelligente</h1>
             <p className="text-gray-400 mt-1">Usa l'IA per digitalizzare e analizzare i tuoi turni di lavoro.</p>
           </div>
-          <button 
-            onClick={() => setIsHistoryOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors transform hover:-translate-y-0.5 disabled:opacity-50"
-            disabled={history.length === 0}
-            title="Mostra storico analisi"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-            Storico
-          </button>
+          <div className="flex items-center justify-center sm:justify-end gap-2">
+            <button 
+              onClick={() => setIsHistoryOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors transform hover:-translate-y-0.5 disabled:opacity-50"
+              disabled={history.length === 0}
+              title="Mostra storico analisi"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              Storico
+            </button>
+            <button 
+              onClick={() => setIsApiKeyModalOpen(true)}
+              className="p-2.5 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors transform hover:-translate-y-0.5"
+              title="Impostazioni API Key"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </header>
         
         <div className="animate-slideInUp" style={{ animationDelay: '200ms' }}>
