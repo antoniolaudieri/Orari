@@ -53,15 +53,18 @@ const jsonSchema = {
                             properties: {
                                 start: { type: Type.STRING, description: "Orario di inizio turno in formato HH:MM (24h)." },
                                 end: { type: Type.STRING, description: "Orario di fine turno in formato HH:MM (24h)." },
-                            }
+                            },
+                            required: ['start', 'end']
                         }
                     },
                     isUncertain: { type: Type.BOOLEAN, description: "True se l'IA non è sicura dell'interpretazione di questo giorno, altrimenti false." }
-                }
+                },
+                required: ['date', 'type', 'shifts', 'isUncertain']
             }
         },
         summary: { type: Type.STRING, description: "Un breve riassunto testuale dell'orario, es. 'Settimana con 5 giorni lavorativi e 2 di riposo, con un totale di X ore.'" },
-    }
+    },
+    required: ['dateRange', 'schedule', 'summary']
 };
 
 const systemInstruction = `Sei un assistente specializzato nell'analizzare immagini di orari di lavoro settimanali, nello specifico per l'azienda "Appiani". Il tuo compito è estrarre con la massima precisione le informazioni e restituirle in formato JSON.
@@ -75,7 +78,7 @@ Regole di Analisi:
     *   'rest': Se è indicato esplicitamente "RIPOSO" o una dicitura simile.
     *   'empty': Se la casella del giorno è vuota o non interpretabile.
 5.  **Incertezza**: Se non riesci a leggere chiaramente un orario o un giorno, imposta \`isUncertain\` a \`true\` per quel giorno e fai una stima plausibile. Non lasciare mai un turno parziale (es. solo inizio o solo fine).
-6.  **Output**: Restituisci SEMPRE un oggetto JSON strutturato secondo lo schema fornito, con 7 elementi nell'array \`schedule\`, uno per ogni giorno da Lunedì a Domenica in ordine.
+6.  **Output**: Restituisci SEMPRE un oggetto JSON strutturato secondo lo schema fornito, con 7 elementi nell'array \`schedule\`, uno per ogni giorno da Lunedì a Domenica in ordine. Assicurati che tutti i campi richiesti dallo schema siano presenti.
 7.  **Riepilogo (Summary)**: Crea un breve riassunto testuale dell'orario, menzionando i giorni lavorativi, i riposi e una nota generale.
 8.  **Gestione Errori**: Se l'immagine è illeggibile o non contiene un orario, restituisci un JSON con un messaggio di errore nel campo 'summary'.`;
 
@@ -125,10 +128,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
         });
         
-        const jsonString = response.text?.trim();
+        let jsonString = response.text?.trim();
         if (!jsonString) {
             throw new Error("L'analisi IA non ha restituito un testo valido.");
         }
+        
+        // Sanitize the response: remove markdown code blocks if present
+        if (jsonString.startsWith('```json')) {
+            jsonString = jsonString.substring(7, jsonString.length - 3).trim();
+        } else if (jsonString.startsWith('```')) {
+             jsonString = jsonString.substring(3, jsonString.length - 3).trim();
+        }
+
         const analysisResult = JSON.parse(jsonString);
 
         const historyEntry = {
@@ -144,6 +155,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(200).json(newEntry);
     } catch (error: any) {
         console.error('Error during analysis:', error);
-        res.status(500).json({ error: 'Errore interno del server durante l\'analisi.', details: error.message });
+        res.status(500).json({ error: "L'IA non è riuscita a interpretare l'immagine. Prova con una foto più chiara o ritagliata meglio.", details: error.message });
     }
 }
