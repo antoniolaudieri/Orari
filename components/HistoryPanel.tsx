@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AnalysisEntry } from '../types';
+import type { AnalysisEntry } from '../types.js';
 
 interface HistoryPanelProps {
   isOpen: boolean;

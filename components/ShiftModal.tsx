@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { DaySchedule, Shift } from '../types';
+import type { DaySchedule, Shift } from '../types.js';
 
 interface ShiftModalProps {
   isOpen: boolean;

@@ -1,6 +1,6 @@
 import React from 'react';
-import { getMonthGrid, formatDate } from '../utils/dateUtils';
-import type { DaySchedule } from '../types';
+import { getMonthGrid, formatDate } from '../utils/dateUtils.js';
+import type { DaySchedule } from '../types.js';
 
 interface MonthCalendarProps {
   currentDate: Date;
@@ -23,7 +23,7 @@ export const MonthCalendar: React.FC<MonthCalendarProps> = ({ currentDate, sched
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {monthGrid.map(({ date, isCurrentMonth }, index) => {
+        {monthGrid.map(({ date, isCurrentMonth }: { date: Date; isCurrentMonth: boolean }, index: number) => {
           const dateString = formatDate(date);
           const dayData = scheduleData.find(d => d.date === dateString);
           const isToday = date.getTime() === today.getTime();

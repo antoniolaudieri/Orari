@@ -1,5 +1,5 @@
 import { createPool } from '@vercel/postgres';
-import type { AnalysisEntry } from '../../types';
+import type { AnalysisEntry } from '../../types.js';
 
 // La connessione al database viene gestita automaticamente da Vercel
 // tramite la variabile d'ambiente POSTGRES_URL.

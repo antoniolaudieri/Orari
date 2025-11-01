@@ -1,6 +1,6 @@
 import React from 'react';
-import type { DaySchedule } from '../types';
-import { calculateHours, formatDecimalHours } from '../utils/dateUtils';
+import type { DaySchedule, Shift } from '../types.js';
+import { calculateHours, formatDecimalHours } from '../utils/dateUtils.js';
 
 interface HourTrackerProps {
   schedule: DaySchedule[];
@@ -10,7 +10,7 @@ export const HourTracker: React.FC<HourTrackerProps> = ({ schedule }) => {
   const totalHours = React.useMemo(() => 
     schedule.reduce((total, day) => {
       if (day.type === 'work') {
-        const dayHours = day.shifts.reduce((dayTotal, shift) => {
+        const dayHours = day.shifts.reduce((dayTotal: number, shift: Shift) => {
           return dayTotal + calculateHours(shift.start, shift.end);
         }, 0);
         return total + dayHours;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { DaySchedule } from '../types';
-import { calculateHours, formatDecimalHours } from '../utils/dateUtils';
+import type { DaySchedule, Shift } from '../types.js';
+import { calculateHours, formatDecimalHours } from '../utils/dateUtils.js';
 
 interface DayDetailViewProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export const DayDetailView: React.FC<DayDetailViewProps> = ({ isOpen, onClose, d
 
   const totalHours = useMemo(() => {
     if (!daySchedule || daySchedule.type !== 'work') return 0;
-    return daySchedule.shifts.reduce((total, shift) => total + calculateHours(shift.start, shift.end), 0);
+    return daySchedule.shifts.reduce((total: number, shift: Shift) => total + calculateHours(shift.start, shift.end), 0);
   }, [daySchedule]);
 
   const formattedTotalHours = useMemo(() => formatDecimalHours(totalHours), [totalHours]);
@@ -71,7 +71,7 @@ export const DayDetailView: React.FC<DayDetailViewProps> = ({ isOpen, onClose, d
           <div>
             <h3 className="text-sm font-semibold text-gray-400 mb-2">Turni di lavoro</h3>
             <div className="space-y-2">
-              {daySchedule.shifts.map((shift, index) => (
+              {daySchedule.shifts.map((shift: Shift, index: number) => (
                 <div key={index} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg ring-1 ring-slate-700">
                   <span className="font-mono font-semibold tracking-wide text-white">{shift.start} - {shift.end}</span>
                   <span className="text-sm text-gray-400">{formatDecimalHours(calculateHours(shift.start, shift.end))}</span>

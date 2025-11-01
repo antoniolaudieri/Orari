@@ -1,4 +1,4 @@
-import type { Shift } from '../types';
+import type { Shift } from '../types.js';
 
 export const formatDate = (date: Date): string => {
   return date.toISOString().split('T')[0];

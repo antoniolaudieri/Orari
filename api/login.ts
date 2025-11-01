@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { setSession } from './lib/auth';
+import { setSession } from './lib/auth.js';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

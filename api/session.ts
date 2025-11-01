@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getUserIdFromRequest } from './lib/auth';
+import { getUserIdFromRequest } from './lib/auth.js';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {

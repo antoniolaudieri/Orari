@@ -1,6 +1,6 @@
 import React from 'react';
-import type { DaySchedule } from '../types';
-import { timeToMinutes } from '../utils/dateUtils';
+import type { DaySchedule, Shift } from '../types.js';
+import { timeToMinutes } from '../utils/dateUtils.js';
 
 interface CalendarGridProps {
   weekDays: string[];
@@ -67,7 +67,7 @@ const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: ()
       cardClasses += " bg-blue-900/30 ring-1 ring-blue-500/50 cursor-pointer hover:bg-blue-900/50 hover:ring-blue-400";
       content = (
         <div className="relative w-full h-full">
-            {shifts.map((shift, index) => {
+            {shifts.map((shift: Shift, index: number) => {
                 const startMinutes = timeToMinutes(shift.start);
                 const topPercent = (startMinutes / (24 * 60)) * 100;
                 return (

@@ -162,20 +162,24 @@ const App: React.FC = () => {
             const ai = new GoogleGenAI({ apiKey });
             
             const imagePart = { inlineData: { data: base64Data, mimeType: file.type } };
+            const textPart = { text: "Analizza questa immagine di un orario di lavoro e restituisci i dati strutturati in formato JSON come specificato nelle istruzioni di sistema. Assicurati di seguire lo schema JSON richiesto." };
 
             const response = await ai.models.generateContent({
                 model: geminiModel,
-                contents: { parts: [imagePart] },
+                contents: { parts: [textPart, imagePart] },
                 config: {
                     systemInstruction: getSystemInstruction(),
                     responseMimeType: "application/json",
                     responseSchema: jsonSchema,
-                    safetySettings,
                 },
+                safetySettings,
             });
 
-            let jsonString = response.text.trim();
-            if (!jsonString) throw new Error("L'analisi IA non ha restituito un testo valido.");
+            const text = response.text;
+            if (!text) {
+                throw new Error("L'analisi IA non ha restituito un testo valido.");
+            }
+            let jsonString = text.trim();
 
             if (jsonString.startsWith('```json')) {
                 jsonString = jsonString.substring(7, jsonString.length - 3).trim();
@@ -184,6 +188,13 @@ const App: React.FC = () => {
             }
 
             const analysisResult = JSON.parse(jsonString);
+
+            // FIX: Navigate calendar to the analyzed week
+            if (analysisResult.schedule && analysisResult.schedule.length > 0) {
+                const firstDayOfSchedule = analysisResult.schedule[0].date;
+                // Add T12:00:00Z to avoid timezone issues when creating the date
+                setCurrentDate(new Date(firstDayOfSchedule + 'T12:00:00Z'));
+            }
 
             const resultForUI: AnalysisEntry = {
                 id: Date.now(),
@@ -243,6 +254,10 @@ const App: React.FC = () => {
   const handleLoadHistory = (id: number) => {
     const entry = history.find(e => e.id === id);
     if (entry) {
+        if (entry.schedule && entry.schedule.length > 0) {
+            const firstDayOfSchedule = entry.schedule[0].date;
+            setCurrentDate(new Date(firstDayOfSchedule + 'T12:00:00Z'));
+        }
         setCurrentAnalysis(entry);
         setSchedule(entry.schedule);
         setIsHistoryPanelOpen(false);
@@ -266,7 +281,8 @@ const App: React.FC = () => {
         const weekStart = getWeekStartDate(currentDate);
         const weekDates = getWeekDays(weekStart).map(day => formatDate(day.date));
         const matchingSchedule = schedule.filter(day => weekDates.includes(day.date));
-        if (matchingSchedule.length === 7) return matchingSchedule;
+        // Check if there is a matching schedule, even if not a full week
+        if (matchingSchedule.length > 0) return matchingSchedule;
     }
     return getWeekDays(currentDate).map(day => ({ date: formatDate(day.date), type: 'empty', shifts: [] }));
   }, [schedule, currentDate]);

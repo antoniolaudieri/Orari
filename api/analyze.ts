@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { addHistory } from './lib/db';
-import type { DaySchedule } from '../../types';
+import { addHistory } from './lib/db.js';
+import type { DaySchedule } from '../types.js';
 
 interface AnalysisPayload {
     analysisResult: {
