@@ -175,10 +175,10 @@ const App: React.FC = () => {
                 safetySettings,
             });
 
-            const text = response.text;
-            if (!text) {
+            if (!response.text) {
                 throw new Error("L'analisi IA non ha restituito un testo valido.");
             }
+            const text = response.text;
             let jsonString = text.trim();
 
             if (jsonString.startsWith('```json')) {
