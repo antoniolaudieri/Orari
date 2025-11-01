@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Type } from '@google/genai';
 import { ImageUploader } from './components/ImageUploader';
 import { CalendarGrid } from './components/CalendarGrid';
 import { WeekNavigator } from './components/WeekNavigator';
@@ -12,8 +13,68 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { MonthCalendar } from './components/MonthCalendar';
 import { DayDetailView } from './components/DayDetailView';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import type { DaySchedule, AnalysisEntry } from './types';
 import { getWeekStartDate, formatDate } from './utils/dateUtils';
+
+// Gemini configuration moved from backend to frontend
+const geminiModel = 'gemini-2.5-flash';
+const safetySettings = [
+    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+];
+
+const jsonSchema = {
+    type: Type.OBJECT,
+    properties: {
+        dateRange: { type: Type.STRING, description: "L'intervallo di date della settimana, es. '27 Maggio - 02 Giugno 2024'." },
+        schedule: {
+            type: Type.ARRAY,
+            description: "Un array di 7 oggetti, uno per ogni giorno da Lunedì a Domenica.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    date: { type: Type.STRING, description: "La data del giorno in formato YYYY-MM-DD." },
+                    type: { type: Type.STRING, description: "Tipo di giornata: 'work' per lavoro, 'rest' per riposo, o 'empty' se non specificato." },
+                    shifts: {
+                        type: Type.ARRAY,
+                        description: "Un array di turni per la giornata. Vuoto se è riposo o non specificato.",
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                start: { type: Type.STRING, description: "Orario di inizio turno in formato HH:MM (24h)." },
+                                end: { type: Type.STRING, description: "Orario di fine turno in formato HH:MM (24h)." },
+                            },
+                            required: ['start', 'end']
+                        }
+                    },
+                    isUncertain: { type: Type.BOOLEAN, description: "True se l'IA non è sicura dell'interpretazione di questo giorno, altrimenti false." }
+                },
+                required: ['date', 'type', 'shifts', 'isUncertain']
+            }
+        },
+        summary: { type: Type.STRING, description: "Un breve riassunto testuale dell'orario, es. 'Settimana con 5 giorni lavorativi e 2 di riposo, con un totale di X ore.'" },
+    },
+    required: ['dateRange', 'schedule', 'summary']
+};
+
+const getSystemInstruction = () => `Sei un assistente specializzato nell'analizzare immagini di orari di lavoro settimanali, nello specifico per l'azienda "Appiani". Il tuo compito è estrarre con la massima precisione le informazioni e restituirle in formato JSON.
+
+Regole di Analisi:
+1.  **Formato Input**: Riceverai un'immagine contenente un orario settimanale. L'orario va da Lunedì a Domenica.
+2.  **Identifica le Date**: Trova l'intervallo di date della settimana. Determina la data esatta (YYYY-MM-DD) per ogni giorno da Lunedì a Domenica. L'anno corrente è ${new Date().getFullYear()}.
+3.  **Analisi Giornaliera**: Per ogni giorno, estrai i turni di lavoro. Un giorno può avere uno o più turni. Ogni turno ha un orario di inizio e uno di fine in formato HH:MM (24 ore).
+4.  **Tipi di Giornata**:
+    *   'work': Se ci sono turni di lavoro.
+    *   'rest': Se è indicato esplicitamente "RIPOSO" o una dicitura simile.
+    *   'empty': Se la casella del giorno è vuota o non interpretabile.
+5.  **Incertezza**: Se non riesci a leggere chiaramente un orario o un giorno, imposta \`isUncertain\` a \`true\` per quel giorno e fai una stima plausibile. Non lasciare mai un turno parziale (es. solo inizio o solo fine).
+6.  **Output**: Restituisci SEMPRE un oggetto JSON strutturato secondo lo schema fornito, con 7 elementi nell'array \`schedule\`, uno per ogni giorno da Lunedì a Domenica in ordine. Assicurati che tutti i campi richiesti dallo schema siano presenti.
+7.  **Riepilogo (Summary)**: Crea un breve riassunto testuale dell'orario, menzionando i giorni lavorativi, i riposi e una nota generale.
+8.  **Gestione Errori**: Se l'immagine è illeggibile o non contiene un orario, restituisci un JSON con un messaggio di errore nel campo 'summary'.`;
+
 
 const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -29,10 +90,18 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [dayDetail, setDayDetail] = useState<DaySchedule | null>(null);
   const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000); // Update every minute
+    const savedApiKey = localStorage.getItem('gemini-api-key');
+    if (savedApiKey) {
+        setApiKey(savedApiKey);
+    } else {
+        setIsApiKeyModalOpen(true);
+    }
     return () => clearInterval(timer);
   }, []);
 
@@ -54,33 +123,104 @@ const App: React.FC = () => {
     loadHistory();
   }, [loadHistory]);
 
+  const handleSaveApiKey = (key: string) => {
+    if (key) {
+      setApiKey(key);
+      localStorage.setItem('gemini-api-key', key);
+      setIsApiKeyModalOpen(false);
+      setError(null);
+    } else {
+      setError("La chiave API non può essere vuota.");
+    }
+  };
+
+
   const handleAnalyze = async (file: File) => {
+    if (!apiKey) {
+      setError("Per favore, imposta la tua chiave API di Google Gemini nelle impostazioni.");
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
+    
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+        const base64Data = (reader.result as string).split(',')[1];
+        
+        try {
+            const ai = new GoogleGenAI({ apiKey });
+            
+            const imagePart = {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: file.type,
+                },
+            };
 
-    const formData = new FormData();
-    formData.append('image', file);
+            const response = await ai.models.generateContent({
+                model: geminiModel,
+                contents: { parts: [imagePart] },
+                config: {
+                    systemInstruction: getSystemInstruction(),
+                    responseMimeType: "application/json",
+                    responseSchema: jsonSchema,
+                    safetySettings,
+                },
+            });
 
-    try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
+            let jsonString = response.text?.trim();
+            if (!jsonString) {
+                throw new Error("L'analisi IA non ha restituito un testo valido.");
+            }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Analisi fallita');
-      }
+            if (jsonString.startsWith('```json')) {
+                jsonString = jsonString.substring(7, jsonString.length - 3).trim();
+            } else if (jsonString.startsWith('```')) {
+                jsonString = jsonString.substring(3, jsonString.length - 3).trim();
+            }
 
-      const result: AnalysisEntry = await response.json();
-      setCurrentAnalysis(result);
-      setSchedule(result.schedule);
-      loadHistory(); // Refresh history after analysis
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
+            const analysisResult = JSON.parse(jsonString);
+
+            const payload = {
+                analysisResult: {
+                    dateRange: analysisResult.dateRange,
+                    schedule: analysisResult.schedule,
+                    summary: analysisResult.summary,
+                },
+                imageData: base64Data,
+                mimeType: file.type,
+            };
+
+            const saveResponse = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!saveResponse.ok) {
+                const errorData = await saveResponse.json();
+                throw new Error(errorData.error || 'Salvataggio analisi fallito');
+            }
+
+            const result: AnalysisEntry = await saveResponse.json();
+            setCurrentAnalysis(result);
+            setSchedule(result.schedule);
+            loadHistory(); // Refresh history
+        } catch (err: any) {
+            console.error("Analysis Error:", err);
+            setError(err.message || "L'IA non è riuscita a interpretare l'immagine. Prova con una foto più chiara o ritagliata meglio.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    reader.onerror = (error) => {
+        console.error("File Reading Error:", error);
+        setError("Impossibile leggere il file immagine.");
+        setIsLoading(false);
+    };
   };
 
   const handlePreviousWeek = () => {
@@ -152,7 +292,6 @@ const App: React.FC = () => {
           setCurrentAnalysis(entry);
           setSchedule(entry.schedule);
           
-          // Try to set the date to the first day of the schedule
           if (entry.schedule && entry.schedule.length > 0) {
               setCurrentDate(new Date(entry.schedule[0].date + 'T12:00:00Z'));
           }
@@ -217,8 +356,11 @@ const App: React.FC = () => {
                 </h1>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
-               <button onClick={() => setIsHistoryPanelOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5">
+               <button onClick={() => setIsHistoryPanelOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5" aria-label="Storico">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
+               </button>
+                <button onClick={() => setIsApiKeyModalOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5" aria-label="Impostazioni">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                </button>
             </div>
         </header>
@@ -286,6 +428,12 @@ const App: React.FC = () => {
         isOpen={isDayDetailOpen}
         onClose={() => setIsDayDetailOpen(false)}
         daySchedule={dayDetail}
+      />
+       <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={handleSaveApiKey}
+        currentApiKey={apiKey}
       />
     </>
   );

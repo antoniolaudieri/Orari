@@ -6,7 +6,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const userId = 'ilaria-user-id'; // Static user ID, authentication removed.
+    // ID utente statico dato che il login è stato rimosso.
+    const userId = 'ilaria-user-id';
 
     const { id } = req.query;
 
