@@ -1,16 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { deleteHistory } from '../lib/db';
-import { getUserIdFromRequest } from '../lib/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'DELETE') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const userId = getUserIdFromRequest(req);
-    if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const userId = 'ilaria-user-id'; // Static user ID, authentication removed.
 
     const { id } = req.query;
 

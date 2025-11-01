@@ -12,12 +12,10 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { MonthCalendar } from './components/MonthCalendar';
 import { DayDetailView } from './components/DayDetailView';
-import { LoginPage } from './components/LoginPage';
 import type { DaySchedule, AnalysisEntry } from './types';
 import { getWeekStartDate, formatDate } from './utils/dateUtils';
 
-// Main application component, rendered only when logged in
-const MainApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [schedule, setSchedule] = useState<DaySchedule[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -222,9 +220,6 @@ const MainApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                <button onClick={() => setIsHistoryPanelOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
                </button>
-               <button onClick={onLogout} className="px-4 py-2 text-sm font-semibold text-gray-200 bg-slate-700/50 rounded-lg hover:bg-red-800/80 hover:text-white transition-colors duration-200">
-                   Logout
-               </button>
             </div>
         </header>
 
@@ -295,50 +290,6 @@ const MainApp: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
     </>
   );
 };
-
-
-// Main component that handles authentication state
-const App: React.FC = () => {
-    const [authStatus, setAuthStatus] = useState<'loading' | 'loggedIn' | 'loggedOut'>('loading');
-
-    useEffect(() => {
-        const checkSession = async () => {
-            try {
-                const response = await fetch('/api/session');
-                const data = await response.json();
-                setAuthStatus(data.loggedIn ? 'loggedIn' : 'loggedOut');
-            } catch (error) {
-                console.error("Failed to check session", error);
-                setAuthStatus('loggedOut');
-            }
-        };
-        checkSession();
-    }, []);
-
-    const handleLoginSuccess = () => {
-        setAuthStatus('loggedIn');
-    };
-    
-    const handleLogout = async () => {
-        await fetch('/api/logout', { method: 'POST' });
-        setAuthStatus('loggedOut');
-    };
-
-
-    if (authStatus === 'loading') {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-teal-500"></div>
-            </div>
-        );
-    }
-    
-    if (authStatus === 'loggedOut') {
-        return <LoginPage onLoginSuccess={handleLoginSuccess} />;
-    }
-
-    return <MainApp onLogout={handleLogout} />;
-}
 
 
 export default App;

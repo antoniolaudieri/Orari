@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Type } from '@google/genai';
 import { addHistory } from './lib/db';
-import { getUserIdFromRequest } from './lib/auth';
 import formidable, { File } from 'formidable';
 import fs from 'fs';
 
@@ -24,7 +23,7 @@ const parseForm = (req: VercelRequest): Promise<{ fields: formidable.Fields; fil
 };
 
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const model = 'gemini-2.5-flash';
 const safetySettings = [
@@ -86,10 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const userId = getUserIdFromRequest(req);
-    if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const userId = 'ilaria-user-id'; // Static user ID, authentication removed.
 
     try {
         const { files } = await parseForm(req);
