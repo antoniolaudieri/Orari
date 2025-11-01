@@ -8,8 +8,6 @@ interface AnalysisPayload {
         schedule: DaySchedule[];
         summary: string;
     };
-    imageData: string;
-    mimeType: string;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -21,9 +19,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = 'ilaria-user-id';
 
     try {
-        const { analysisResult, imageData, mimeType } = req.body as AnalysisPayload;
+        const { analysisResult } = req.body as AnalysisPayload;
 
-        if (!analysisResult || !imageData || !mimeType) {
+        if (!analysisResult) {
             return res.status(400).json({ error: 'Payload incompleto.' });
         }
         
@@ -31,8 +29,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             dateRange: analysisResult.dateRange,
             schedule: analysisResult.schedule,
             summary: analysisResult.summary,
-            imageData: imageData,
-            mimeType: mimeType,
         };
 
         const newEntry = await addHistory(userId, historyEntry);

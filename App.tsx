@@ -1,22 +1,21 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Type } from '@google/genai';
-import { ImageUploader } from './components/ImageUploader';
-import { CalendarGrid } from './components/CalendarGrid';
-import { WeekNavigator } from './components/WeekNavigator';
-import { HourTracker } from './components/HourTracker';
-import { LoadingOverlay } from './components/LoadingOverlay';
-import { ErrorDisplay } from './components/ErrorDisplay';
-import { WelcomeMessage } from './components/WelcomeMessage';
-import { ShiftModal } from './components/ShiftModal';
-import { AnalysisSummary } from './components/AnalysisSummary';
-import { HistoryPanel } from './components/HistoryPanel';
-import { ViewSwitcher } from './components/ViewSwitcher';
-import { MonthCalendar } from './components/MonthCalendar';
-import { DayDetailView } from './components/DayDetailView';
-import { ApiKeyModal } from './components/ApiKeyModal';
-import type { DaySchedule, AnalysisEntry } from './types';
-import { getWeekStartDate, formatDate } from './utils/dateUtils';
-import { createImageThumbnail } from './utils/imageUtils';
+import { ImageUploader } from './components/ImageUploader.js';
+import { CalendarGrid } from './components/CalendarGrid.js';
+import { WeekNavigator } from './components/WeekNavigator.js';
+import { HourTracker } from './components/HourTracker.js';
+import { LoadingOverlay } from './components/LoadingOverlay.js';
+import { ErrorDisplay } from './components/ErrorDisplay.js';
+import { WelcomeMessage } from './components/WelcomeMessage.js';
+import { ShiftModal } from './components/ShiftModal.js';
+import { AnalysisSummary } from './components/AnalysisSummary.js';
+import { HistoryPanel } from './components/HistoryPanel.js';
+import { ViewSwitcher } from './components/ViewSwitcher.js';
+import { MonthCalendar } from './components/MonthCalendar.js';
+import { DayDetailView } from './components/DayDetailView.js';
+import { ApiKeyModal } from './components/ApiKeyModal.js';
+import type { DaySchedule, AnalysisEntry } from './types.js';
+import { getWeekStartDate, formatDate } from './utils/dateUtils.js';
 
 // Gemini configuration moved from backend to frontend
 const geminiModel = 'gemini-2.5-flash';
@@ -185,17 +184,12 @@ const App: React.FC = () => {
 
             const analysisResult = JSON.parse(jsonString);
 
-            // Create a smaller thumbnail for storage to avoid backend timeouts
-            const thumbnailBase64Data = await createImageThumbnail(file, 400, 400);
-
             const payload = {
                 analysisResult: {
                     dateRange: analysisResult.dateRange,
                     schedule: analysisResult.schedule,
                     summary: analysisResult.summary,
-                },
-                imageData: thumbnailBase64Data, // Send thumbnail to backend
-                mimeType: file.type,
+                }
             };
 
             const saveResponse = await fetch('/api/analyze', {
@@ -211,9 +205,9 @@ const App: React.FC = () => {
 
             const result: AnalysisEntry = await saveResponse.json();
             
-            // The result from DB has the thumbnail, but we want to show the original image in the preview.
-            // So we'll augment the result object with the original full-res image data for the UI.
-            const resultForUI = { ...result, imageData: base64Data };
+            // The result from DB doesn't have image data.
+            // We augment it with the original full-res image data for the UI preview.
+            const resultForUI = { ...result, imageData: base64Data, mimeType: file.type };
 
             setCurrentAnalysis(resultForUI);
             setSchedule(result.schedule);
@@ -288,165 +282,4 @@ const App: React.FC = () => {
     if (schedule && currentAnalysis) {
       const newSchedule = schedule.map(day => day.date === updatedDay.date ? updatedDay : day);
       setSchedule(newSchedule);
-      // Here you would typically also update the entry in the database
-      // For now, it's a client-side only update for simplicity after initial analysis
-      console.log("Updated schedule (client-side):", newSchedule);
-    }
-    setIsModalOpen(false);
-  };
-  
-  const handleLoadFromHistory = (id: number) => {
-      const entry = history.find(e => e.id === id);
-      if (entry) {
-          setCurrentAnalysis(entry);
-          setSchedule(entry.schedule);
-          
-          if (entry.schedule && entry.schedule.length > 0) {
-              setCurrentDate(new Date(entry.schedule[0].date + 'T12:00:00Z'));
-          }
-
-          setIsHistoryPanelOpen(false);
-      }
-  };
-  
-  const handleDeleteFromHistory = async (id: number) => {
-      try {
-          const response = await fetch(`/api/history/${id}`, { method: 'DELETE' });
-          if (!response.ok) {
-              throw new Error('Failed to delete history item.');
-          }
-          setHistory(prev => prev.filter(e => e.id !== id));
-      } catch (err) {
-          console.error(err);
-          setError("Impossibile eliminare l'elemento dallo storico.");
-      }
-  };
-
-  const weekSchedule = useMemo(() => {
-    const weekStart = getWeekStartDate(currentDate);
-    const weekDays: DaySchedule[] = [];
-    for (let i = 0; i < 7; i++) {
-        const day = new Date(weekStart);
-        day.setDate(weekStart.getDate() + i);
-        const dateString = formatDate(day);
-        
-        const dayData = schedule?.find(d => d.date === dateString);
-        if (dayData) {
-            weekDays.push(dayData);
-        } else {
-            weekDays.push({ date: dateString, type: 'empty', shifts: [] });
-        }
-    }
-    return weekDays;
-  }, [currentDate, schedule]);
-
-  const weekDaysNames = useMemo(() => {
-      const weekStart = getWeekStartDate(currentDate);
-      const names = [];
-      for (let i = 0; i < 7; i++) {
-          const day = new Date(weekStart);
-          day.setDate(weekStart.getDate() + i);
-          names.push(day.toLocaleDateString('it-IT', { weekday: 'long' }));
-      }
-      return names;
-  }, [currentDate]);
-  
-  const allScheduleData = useMemo(() => history.flatMap(entry => entry.schedule), [history]);
-
-  return (
-    <>
-      {isLoading && <LoadingOverlay />}
-      <div className="min-h-screen flex flex-col p-2 sm:p-4 lg:p-6">
-        <header className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
-            <div className="flex items-center gap-3 mb-3 sm:mb-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400"><path d="M12 2a10 10 0 1 0 10 10c0-4.42-2.87-8.1-7-9.44"/><path d="m13 2-3 9 9 3-3-9Z"/></svg>
-                <h1 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400" style={{ animation: 'text-glow 2s ease-in-out infinite' }}>
-                    Orario Intelligente
-                </h1>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-               <button onClick={() => setIsHistoryPanelOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5" aria-label="Storico">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
-               </button>
-                <button onClick={() => setIsApiKeyModalOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5" aria-label="Impostazioni">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-               </button>
-            </div>
-        </header>
-
-        <main className="flex-1 w-full max-w-7xl mx-auto">
-          <div className="animate-slideInUp">
-            <ImageUploader 
-                onAnalyze={handleAnalyze} 
-                isLoading={isLoading} 
-                initialPreview={currentAnalysis ? `data:${currentAnalysis.mimeType};base64,${currentAnalysis.imageData}` : null}
-            />
-          </div>
-
-          {error && <ErrorDisplay message={error} />}
-          
-          {currentAnalysis && <AnalysisSummary summary={currentAnalysis.summary} />}
-
-          <div className="mt-6 sm:mt-8 animate-slideInUp" style={{ animationDelay: '150ms' }}>
-             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-                <div className="flex items-center gap-2">
-                   <WeekNavigator onPrevious={viewMode === 'week' ? handlePreviousWeek : handlePreviousMonth} onNext={viewMode === 'week' ? handleNextWeek : handleNextMonth} />
-                    <h2 className="text-lg font-semibold text-white w-48 text-center">
-                      {viewMode === 'week' ?
-                        `${formatDate(getWeekStartDate(currentDate)).split('-').reverse().join('/')} - ${formatDate(new Date(getWeekStartDate(currentDate).getTime() + 6 * 24 * 60 * 60 * 1000)).split('-').reverse().join('/')}`
-                        :
-                        currentDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
-                      }
-                    </h2>
-                </div>
-                <div className="flex items-center gap-4">
-                  <HourTracker schedule={schedule || []} />
-                  <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
-                </div>
-              </div>
-
-              {viewMode === 'week' ? (
-                <CalendarGrid weekDays={weekDaysNames} schedule={weekSchedule} onDayClick={handleDayClick} now={now} />
-              ) : (
-                <MonthCalendar currentDate={currentDate} scheduleData={allScheduleData} onDayClick={handleMonthDayClick} />
-              )}
-          </div>
-          
-          {!schedule && !isLoading && !error && (
-            <div className="mt-8 animate-slideInUp" style={{ animationDelay: '150ms' }}>
-                <WelcomeMessage />
-            </div>
-          )}
-
-        </main>
-      </div>
-      <ShiftModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        daySchedule={selectedDay}
-        onUpdateDay={handleUpdateDay}
-      />
-      <HistoryPanel
-        isOpen={isHistoryPanelOpen}
-        onClose={() => setIsHistoryPanelOpen(false)}
-        entries={history}
-        onLoad={handleLoadFromHistory}
-        onDelete={handleDeleteFromHistory}
-      />
-      <DayDetailView
-        isOpen={isDayDetailOpen}
-        onClose={() => setIsDayDetailOpen(false)}
-        daySchedule={dayDetail}
-      />
-       <ApiKeyModal
-        isOpen={isApiKeyModalOpen}
-        onClose={() => setIsApiKeyModalOpen(false)}
-        onSave={handleSaveApiKey}
-        currentApiKey={apiKey}
-      />
-    </>
-  );
-};
-
-
-export default App;
+      // Here you would typically also

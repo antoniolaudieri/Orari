@@ -15,6 +15,6 @@ export interface AnalysisEntry {
   dateRange: string;
   schedule: DaySchedule[];
   summary: string;
-  imageData: string; // Base64 encoded image data
-  mimeType: string;
+  imageData?: string; // Base64 encoded image data - Now optional
+  mimeType?: string; // Now optional
 }
