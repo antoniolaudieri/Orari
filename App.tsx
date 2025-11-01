@@ -16,6 +16,7 @@ import { DayDetailView } from './components/DayDetailView';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import type { DaySchedule, AnalysisEntry } from './types';
 import { getWeekStartDate, formatDate } from './utils/dateUtils';
+import { createImageThumbnail } from './utils/imageUtils';
 
 // Gemini configuration moved from backend to frontend
 const geminiModel = 'gemini-2.5-flash';
@@ -184,13 +185,16 @@ const App: React.FC = () => {
 
             const analysisResult = JSON.parse(jsonString);
 
+            // Create a smaller thumbnail for storage to avoid backend timeouts
+            const thumbnailBase64Data = await createImageThumbnail(file, 400, 400);
+
             const payload = {
                 analysisResult: {
                     dateRange: analysisResult.dateRange,
                     schedule: analysisResult.schedule,
                     summary: analysisResult.summary,
                 },
-                imageData: base64Data,
+                imageData: thumbnailBase64Data, // Send thumbnail to backend
                 mimeType: file.type,
             };
 
@@ -206,7 +210,12 @@ const App: React.FC = () => {
             }
 
             const result: AnalysisEntry = await saveResponse.json();
-            setCurrentAnalysis(result);
+            
+            // The result from DB has the thumbnail, but we want to show the original image in the preview.
+            // So we'll augment the result object with the original full-res image data for the UI.
+            const resultForUI = { ...result, imageData: base64Data };
+
+            setCurrentAnalysis(resultForUI);
             setSchedule(result.schedule);
             loadHistory(); // Refresh history
         } catch (err: any) {
