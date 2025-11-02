@@ -404,7 +404,17 @@ const App: React.FC = () => {
                 {/* Header */}
                 <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                     <div className="flex items-center gap-3">
-                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 animate-breathing"><path d="M12 2a10 10 0 1 0 10 10c0-4.42-2.87-8.1-7-9.44"/><path d="m13 2-3 9 9 3-3-9Z"/></svg>
+                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="animate-breathing">
+                            <defs>
+                                <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#2DD4BF"/>
+                                    <stop offset="100%" stopColor="#38BDF8"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="url(#logoGradient)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M12 6V12L16 14" stroke="url(#logoGradient)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M12 9.5L11.25 11.25L9.5 12L11.25 12.75L12 14.5L12.75 12.75L14.5 12L12.75 11.25L12 9.5Z" fill="url(#logoGradient)"/>
+                        </svg>
                         <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 animate-text-glow">
                            Orario Intelligente
                         </h1>
@@ -470,6 +480,10 @@ const App: React.FC = () => {
 
                     {!currentAnalysis && !hasScheduleThisWeek && <WelcomeMessage />}
                 </main>
+
+                <footer className="text-center text-sm text-gray-500 mt-8 pb-4">
+                    <p>&copy; {new Date().getFullYear()} Orario Intelligente by seedgta</p>
+                </footer>
             </div>
         </div>
     );
