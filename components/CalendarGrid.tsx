@@ -86,7 +86,7 @@ const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: ()
       );
       break;
     case 'rest':
-      cardClasses += "bg-gradient-to-t from-teal-900/50 to-slate-800/50 ring-1 ring-teal-500/50 overflow-hidden";
+      cardClasses += "bg-gradient-to-t from-teal-900/50 to-slate-800/50 ring-1 ring-teal-500/50 overflow-hidden animate-breathing";
       content = <RestDayContent />;
       break;
     default: // 'empty'

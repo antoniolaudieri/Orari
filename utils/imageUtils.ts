@@ -55,158 +55,95 @@ export const generateScheduleSvg = (
     totalHours: string,
     dateRange: string | undefined
 ): string => {
-    const width = 600; // Ridotto da 800 per migliore compatibilità mobile
-    const height = 400; // Altezza leggermente ridotta
-    const cardWidth = 72; // Larghezza card adattata
-    const cardHeight = 180; // Altezza card adattata
-    const gap = 10; // Spaziatura adattata
+    const width = 800;
+    const height = 400;
+    const cardWidth = 90;
+    const cardHeight = 180;
+    const gap = 10;
     const totalWidth = 7 * cardWidth + 6 * gap;
     const startX = (width - totalWidth) / 2;
-    
+    const startY = 90;
+
+    // Funzione di utilità per eseguire l'escape dei caratteri speciali XML/HTML
+    const escapeXml = (unsafe: string) => {
+        if (typeof unsafe !== 'string') return '';
+        return unsafe.replace(/[<>&'"]/g, (c) => {
+            switch (c) {
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '&': return '&amp;';
+                case '\'': return '&apos;';
+                case '"': return '&quot;';
+                default: return c;
+            }
+        });
+    };
+
     const dayCards = schedule.map((day, index) => {
         const dayName = weekDays[index].name.substring(0, 3);
         const dayDate = weekDays[index].date.getDate().toString().padStart(2, '0');
         const x = startX + index * (cardWidth + gap);
         
         let shiftsContent = '';
+        let cardBorderColor = '#334155';
+        
         if (day.type === 'work') {
-            shiftsContent = day.shifts.map((shift, i) => 
-                `<div class="shift">${shift.start} - ${shift.end}</div>`
-            ).join('');
+            cardBorderColor = '#38BDF8';
+            shiftsContent = day.shifts.map((shift, i) => {
+                const shiftY = 70 + i * 26;
+                const shiftText = escapeXml(`${shift.start} - ${shift.end}`);
+                return `
+                    <g>
+                        <rect x="10" y="${shiftY}" width="${cardWidth - 20}" height="20" rx="4" fill="#0F172A" />
+                        <text x="${cardWidth / 2}" y="${shiftY + 14}" class="shift-text" text-anchor="middle">${shiftText}</text>
+                    </g>
+                `;
+            }).join('');
         } else if (day.type === 'rest') {
-            shiftsContent = `<div class="rest-text">Riposo</div>`;
+            cardBorderColor = '#2DD4BF';
+            shiftsContent = `<text x="${cardWidth / 2}" y="${cardHeight / 2 + 10}" class="rest-text" text-anchor="middle">Riposo</text>`;
         } else {
-            shiftsContent = `<div class="empty-text">-</div>`;
+            shiftsContent = `<text x="${cardWidth / 2}" y="${cardHeight / 2 + 10}" class="empty-text" text-anchor="middle">-</text>`;
         }
 
         return `
-            <div class="card ${day.type}" style="position: absolute; left: ${x}px; top: 100px; width: ${cardWidth}px; height: ${cardHeight}px;">
-                <div class="day-header">
-                    <span class="day-name">${dayName}</span>
-                    <span class="day-date">${dayDate}</span>
-                </div>
-                <div class="shifts-container">
-                    ${shiftsContent}
-                </div>
-            </div>
+            <g transform="translate(${x}, ${startY})">
+                <rect width="${cardWidth}" height="${cardHeight}" rx="12" fill="#1E293B" stroke="${cardBorderColor}" stroke-width="1.5" />
+                <text x="12" y="25" class="day-name">${escapeXml(dayName)}</text>
+                <text x="${cardWidth - 12}" y="25" class="day-date" text-anchor="end">${escapeXml(dayDate)}</text>
+                ${shiftsContent}
+            </g>
         `;
     }).join('');
 
     const svgString = `
         <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-            <foreignObject width="100%" height="100%">
-                <div xmlns="http://www.w3.org/1999/xhtml">
-                    <style>
-                        .container {
-                            width: ${width}px;
-                            height: ${height}px;
-                            background-color: #0B0F19;
-                            color: #E2E8F0;
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            padding: 20px;
-                            box-sizing: border-box;
-                            position: relative;
-                        }
-                        .header-text {
-                            font-size: 24px; /* Ridotto */
-                            font-weight: bold;
-                            color: #fff;
-                            margin-bottom: 5px;
-                        }
-                        .date-range {
-                            font-size: 14px; /* Ridotto */
-                            color: #94A3B8;
-                            margin-bottom: 20px; /* Ridotto */
-                        }
-                        .card {
-                            background-color: #1E293B;
-                            border-radius: 10px; /* Leggermente più piccolo */
-                            padding: 10px; /* Leggermente più piccolo */
-                            box-sizing: border-box;
-                            display: flex;
-                            flex-direction: column;
-                            border: 1px solid #334155;
-                        }
-                        .card.work {
-                            border-color: #38BDF8;
-                        }
-                        .card.rest {
-                             border-color: #2DD4BF;
-                        }
-                        .day-header {
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: baseline;
-                            font-weight: bold;
-                            margin-bottom: 8px; /* Leggermente più piccolo */
-                        }
-                        .day-name {
-                            font-size: 13px; /* Ridotto */
-                            text-transform: capitalize;
-                            color: #CBD5E1;
-                        }
-                        .day-date {
-                            font-size: 16px; /* Ridotto */
-                            color: #94A3B8;
-                        }
-                        .shifts-container {
-                            flex-grow: 1;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            gap: 6px; /* Leggermente più piccolo */
-                        }
-                        .shift {
-                            background-color: #0F172A;
-                            color: #E2E8F0;
-                            border-radius: 4px;
-                            padding: 3px 6px;
-                            font-size: 12px; /* Ridotto */
-                            font-weight: 500;
-                            width: 100%;
-                            text-align: center;
-                            box-sizing: border-box;
-                        }
-                        .rest-text {
-                            font-size: 18px; /* Ridotto */
-                            font-weight: bold;
-                            color: #2DD4BF;
-                        }
-                        .empty-text {
-                            font-size: 28px; /* Ridotto */
-                            color: #475569;
-                        }
-                        .footer {
-                            position: absolute;
-                            bottom: 20px; /* Adattato */
-                            right: 25px; /* Adattato */
-                            text-align: right;
-                        }
-                        .footer-label {
-                            font-size: 12px; /* Ridotto */
-                            color: #94A3B8;
-                        }
-                        .footer-value {
-                            font-size: 20px; /* Ridotto */
-                            font-weight: bold;
-                            color: #fff;
-                        }
-                    </style>
-                    <div class="container">
-                        <div class="header-text">Orario Settimanale</div>
-                        <div class="date-range">${dateRange || ''}</div>
-                        ${dayCards}
-                        <div class="footer">
-                            <div class="footer-label">Monte Ore</div>
-                            <div class="footer-value">${totalHours}</div>
-                        </div>
-                    </div>
-                </div>
-            </foreignObject>
+            <style>
+                .root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
+                .main-title { font-size: 26px; font-weight: bold; fill: #FFFFFF; }
+                .sub-title { font-size: 15px; fill: #94A3B8; }
+                .day-name { font-size: 14px; font-weight: 500; fill: #CBD5E1; text-transform: capitalize; }
+                .day-date { font-size: 16px; fill: #94A3B8; }
+                .shift-text { font-family: monospace; font-size: 12px; font-weight: 500; fill: #E2E8F0; }
+                .rest-text { font-size: 18px; font-weight: bold; fill: #2DD4BF; }
+                .empty-text { font-size: 30px; fill: #475569; }
+                .footer-label { font-size: 13px; font-weight: 500; fill: #94A3B8; }
+                .footer-value { font-size: 22px; font-weight: bold; fill: #FFFFFF; }
+            </style>
+            
+            <g class="root">
+                <rect width="100%" height="100%" fill="#0B0F19" />
+                
+                <text x="${width / 2}" y="45" class="main-title" text-anchor="middle">Orario Settimanale</text>
+                <text x="${width / 2}" y="68" class="sub-title" text-anchor="middle">${escapeXml(dateRange || '')}</text>
+                
+                ${dayCards}
+                
+                <g transform="translate(${width - 40}, ${height - 50})">
+                    <text x="0" y="0" class="footer-label" text-anchor="end">Monte Ore</text>
+                    <text x="0" y="28" class="footer-value" text-anchor="end">${escapeXml(totalHours)}</text>
+                </g>
+            </g>
         </svg>
     `;
 
