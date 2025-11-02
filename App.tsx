@@ -56,12 +56,12 @@ const jsonSchema = {
                 required: ['date', 'type', 'shifts', 'isUncertain']
             }
         },
-        summary: { type: Type.STRING, description: "Un breve riassunto testuale dell'orario, es. 'Settimana con 5 giorni lavorativi e 2 di riposo, con un totale di X ore.'" },
+        summary: { type: Type.STRING, description: "Un breve riassunto testuale dell'orario, es. 'Ciao Ilaria! Settimana con 5 giorni lavorativi e 2 di riposo, con un totale di X ore. Pronta a conquistare il mondo... dopo un caffè!'." },
     },
     required: ['dateRange', 'schedule', 'summary']
 };
 
-const getSystemInstruction = () => `Sei un assistente specializzato nell'analizzare immagini di orari di lavoro settimanali, nello specifico per l'azienda "Appiani". Il tuo compito è estrarre con la massima precisione le informazioni e restituirle in formato JSON.
+const getSystemInstruction = () => `Sei un assistente specializzato nell'analizzare immagini di orari di lavoro settimanali, nello specifico per l'azienda "Appiani". Il tuo compito è estrarre con la massima precisione le informazioni e restituirle in formato JSON, rivolgendoti sempre a una utente di nome "Ilaria".
 
 Regole di Analisi:
 1.  **Formato Input**: Riceverai un'immagine contenente un orario settimanale. L'orario va da Lunedì a Domenica.
@@ -71,7 +71,11 @@ Regole di Analisi:
     *   'work': Se ci sono turni di lavoro.
     *   'rest': Se è indicato esplicitamente "RIPOSO", una singola "R", un trattino ("-"), o una dicitura simile.
     *   'empty': Se la casella del giorno è vuota o non interpretabile e non rientra nei casi precedenti.
-5.  **Incertezza**: Se non riesci a leggere chiaramente un orario o un giorno, imposta \`isUncertain\` a \`true\`.`;
+5.  **Incertezza**: Se non riesci a leggere chiaramente un orario o un giorno, imposta \`isUncertain\` a \`true\`.
+6.  **Genera il Sommario (campo 'summary')**: Crea un riassunto testuale dell'orario per Ilaria.
+    *   **Inizio**: Inizia sempre salutando "Ciao Ilaria!".
+    *   **Contenuto**: Indica il numero di giorni lavorativi, di riposo e il totale delle ore calcolate.
+    *   **Fine**: Concludi sempre con una frase divertente o motivazionale sulla settimana lavorativa. Esempi di frasi da cui prendere spunto: 'Pronta a conquistare il mondo... dopo un caffè!', 'Che la forza (e il caffè) siano con te!', 'Un'altra settimana, un'altra vittoria!', 'Ricorda: il weekend è sempre più vicino di quanto pensi!', 'Dai che anche questa settimana la portiamo a casa!'.`;
 
 const App: React.FC = () => {
     // State
@@ -96,29 +100,34 @@ const App: React.FC = () => {
     const weekStartDate = useMemo(() => getWeekStartDate(new Date(currentDate)), [currentDate]);
     const weekDays = useMemo(() => getWeekDays(weekStartDate), [weekStartDate]);
     const weekSchedule: DaySchedule[] = useMemo(() => {
-        if (!currentAnalysis && analysisHistory.length === 0) return weekDays.map(d => ({ date: formatDate(d.date), type: 'empty', shifts: [] }));
+        if (!currentAnalysis && analysisHistory.length === 0) {
+            return weekDays.map(d => ({ date: formatDate(d.date), type: 'empty', shifts: [] }));
+        }
 
         const weekStart = getWeekStartDate(new Date(currentDate));
+
+        // Prioritize the currently active analysis if it matches the week being viewed.
+        // This ensures that a freshly loaded or newly analyzed schedule is displayed correctly.
+        if (currentAnalysis) {
+            const analysisWeekStart = getWeekStartDate(new Date(currentAnalysis.schedule[0].date));
+            if (analysisWeekStart.getTime() === weekStart.getTime()) {
+                return currentAnalysis.schedule;
+            }
+        }
         
-        // Find if any day of the current week is in history
+        // If the current analysis doesn't match (e.g., user navigated away),
+        // search the history for a schedule that matches the current view.
         for (const historyEntry of analysisHistory) {
-             const historyStart = new Date(historyEntry.schedule[0].date);
-             if (weekStart.getTime() === historyStart.getTime()) {
+             const historyWeekStart = getWeekStartDate(new Date(historyEntry.schedule[0].date));
+             if (weekStart.getTime() === historyWeekStart.getTime()) {
                  return historyEntry.schedule;
              }
         }
         
-        // If current analysis matches the week, show it
-        if (currentAnalysis) {
-          const analysisStart = new Date(currentAnalysis.schedule[0].date);
-           if (analysisStart.getTime() === weekStart.getTime()) {
-              return currentAnalysis.schedule;
-          }
-        }
-        
+        // If no matching schedule is found in the current analysis or history, display an empty week.
         return weekDays.map(d => ({ date: formatDate(d.date), type: 'empty', shifts: [] }));
 
-    }, [currentAnalysis, weekDays, currentDate, analysisHistory]);
+    }, [currentAnalysis, currentDate, analysisHistory, weekDays]);
     
     const hasScheduleThisWeek = useMemo(() => weekSchedule.some(d => d.type !== 'empty'), [weekSchedule]);
     
@@ -248,80 +257,58 @@ const App: React.FC = () => {
                 body: JSON.stringify({ analysisResult })
             });
             if (!response.ok) {
-                throw new Error('Failed to save analysis to history');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Errore nel salvataggio dei dati.');
             }
             return await response.json();
-        } catch (e) {
-            console.error(e);
-            setError("Impossibile salvare l'analisi. Verrà visualizzata solo temporaneamente.");
+        } catch(e: any) {
+            console.error("Failed to save analysis:", e);
+            setError(`Impossibile salvare l'analisi: ${e.message}`);
+            // Return the original object so the UI can still update
             return { id: Date.now(), ...analysisResult };
         }
     };
     
-    const fetchHistory = useCallback(async () => {
+    const fetchHistory = async () => {
         try {
             const response = await fetch('/api/history');
-            if (response.ok) {
-                const data = await response.json();
-                setAnalysisHistory(data);
-            }
-        } catch (e) {
-            console.error("Failed to fetch history:", e);
+            if (!response.ok) throw new Error("Errore nel recupero dello storico.");
+            const data = await response.json();
+            setAnalysisHistory(data);
+        } catch(e: any) {
+             console.error("Failed to fetch history:", e);
+             setError(`Impossibile caricare lo storico: ${e.message}`);
         }
-    }, []);
+    };
     
+    const handleDeleteHistory = async (id: number) => {
+        const originalHistory = [...analysisHistory];
+        setAnalysisHistory(prev => prev.filter(e => e.id !== id));
+        if (currentAnalysis?.id === id) {
+            setCurrentAnalysis(null);
+        }
+        
+        try {
+            const response = await fetch(`/api/history/${id}`, { method: 'DELETE'});
+            if (!response.ok) {
+                throw new Error("Errore nell'eliminazione.");
+            }
+        } catch (e: any) {
+            setError(`Impossibile eliminare la voce: ${e.message}`);
+            setAnalysisHistory(originalHistory); // Restore on failure
+        }
+    };
+
     const handleLoadHistory = (id: number) => {
         const entry = analysisHistory.find(e => e.id === id);
         if (entry) {
             setCurrentAnalysis(entry);
-            const startDate = new Date(entry.schedule[0].date + 'T12:00:00Z');
-            setCurrentDate(startDate);
+            const entryStartDate = new Date(entry.schedule[0].date);
+            setCurrentDate(entryStartDate);
             setIsHistoryPanelOpen(false);
         }
     };
 
-    const handleDeleteHistory = async (id: number) => {
-        try {
-            const response = await fetch(`/api/history/${id}`, { method: 'DELETE' });
-            if (response.ok) {
-                setAnalysisHistory(prev => prev.filter(e => e.id !== id));
-                 if(currentAnalysis?.id === id) {
-                    setCurrentAnalysis(null);
-                }
-            } else {
-                 setError("Impossibile eliminare la voce dello storico.");
-            }
-        } catch (e) {
-            setError("Errore di rete durante l'eliminazione.");
-        }
-    };
-    
-    const handleSaveApiKey = (key: string) => {
-        setApiKey(key);
-        localStorage.setItem('gemini_api_key', key);
-        setIsApiKeyModalOpen(false);
-        setError(null);
-    };
-
-    const handleUpdateDay = (updatedDay: DaySchedule) => {
-        const analysisToUpdate = currentAnalysis || analysisHistory.find(h => h.schedule.some(d => d.date === updatedDay.date));
-
-        if (analysisToUpdate) {
-            const updatedSchedule = analysisToUpdate.schedule.map(d =>
-                d.date === updatedDay.date ? updatedDay : d
-            );
-            const updatedAnalysis = { ...analysisToUpdate, schedule: updatedSchedule };
-
-            if(currentAnalysis?.id === updatedAnalysis.id) {
-                setCurrentAnalysis(updatedAnalysis);
-            }
-            setAnalysisHistory(prev => prev.map(h => h.id === updatedAnalysis.id ? updatedAnalysis : h));
-            // Note: This change is client-side only. A dedicated API endpoint would be needed to persist it.
-        }
-        setIsShiftModalOpen(false);
-    };
-    
-    // Navigation
     const handlePrevious = () => {
         setCurrentDate(prev => {
             const newDate = new Date(prev);
@@ -337,7 +324,7 @@ const App: React.FC = () => {
     const handleNext = () => {
         setCurrentDate(prev => {
             const newDate = new Date(prev);
-            if(viewMode === 'week') {
+             if(viewMode === 'week') {
                 newDate.setDate(newDate.getDate() + 7);
             } else {
                 newDate.setMonth(newDate.getMonth() + 1);
@@ -346,145 +333,144 @@ const App: React.FC = () => {
         });
     };
     
-    // Day Click handlers
-    const handleWeekDayClick = (day: DaySchedule) => {
-        setSelectedDayForEdit(day);
-        setIsShiftModalOpen(true);
+    const handleGoToToday = () => {
+        setCurrentDate(new Date());
+    }
+
+    const handleDayClick = (daySchedule: DaySchedule) => {
+        if(viewMode === 'month') {
+             setCurrentDate(new Date(daySchedule.date));
+             setViewMode('week');
+        } else {
+             setSelectedDayForDetail(daySchedule);
+             setIsDayDetailOpen(true);
+        }
     };
 
-    const handleMonthDayClick = (date: Date) => {
-        const dateString = formatDate(date);
-        const dayData = analysisHistory.flatMap(h => h.schedule).find(d => d.date === dateString);
-        if (dayData) {
-            setSelectedDayForDetail(dayData);
-            setIsDayDetailOpen(true);
+    const handleUpdateDay = (updatedDay: DaySchedule) => {
+        if (currentAnalysis) {
+            const updatedSchedule = currentAnalysis.schedule.map(d => 
+                d.date === updatedDay.date ? updatedDay : d
+            );
+            const updatedAnalysis = { ...currentAnalysis, schedule: updatedSchedule };
+            // TODO: Here you could also re-calculate the summary if needed
+            setCurrentAnalysis(updatedAnalysis);
+            // TODO: You should also update this in the backend history
+        }
+        setIsShiftModalOpen(false);
+        setSelectedDayForEdit(null);
+    };
+    
+    const handleApiKeySave = (newKey: string) => {
+        if (newKey) {
+            setApiKey(newKey);
+            localStorage.setItem('gemini_api_key', newKey);
+            setError(null);
+            setIsApiKeyModalOpen(false);
         } else {
-            setCurrentDate(date);
-            setViewMode('week');
+            setError("La chiave API non può essere vuota.");
         }
     };
     
-    const allSchedulesForMonth = useMemo(() => {
-        return analysisHistory.flatMap(entry => entry.schedule);
-    }, [analysisHistory]);
-    
-    const currentWeekDateRange = useMemo(() => {
-       const entry = analysisHistory.find(e => {
-            const historyStart = new Date(e.schedule[0].date).getTime();
-            const weekStart = getWeekStartDate(new Date(currentDate)).getTime();
-            return historyStart === weekStart;
-       });
-       return entry ? entry.dateRange : currentAnalysis?.dateRange;
-    }, [currentDate, analysisHistory, currentAnalysis]);
+    const currentDisplaySchedule = useMemo(() => {
+        if (viewMode === 'month') {
+            // Find all schedules in history that are in the current month
+            const month = currentDate.getMonth();
+            const year = currentDate.getFullYear();
+            const monthSchedules = analysisHistory.flatMap(entry => 
+                entry.schedule.filter(day => {
+                    const d = new Date(day.date);
+                    return d.getMonth() === month && d.getFullYear() === year;
+                })
+            );
+            return monthSchedules;
+        }
+        return weekSchedule;
+
+    }, [viewMode, currentDate, analysisHistory, weekSchedule]);
+
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen p-2 sm:p-4 lg:p-6">
             {isLoading && <LoadingOverlay />}
-            <ApiKeyModal
-                isOpen={isApiKeyModalOpen}
-                onClose={() => setIsApiKeyModalOpen(false)}
-                onSave={handleSaveApiKey}
-                currentApiKey={apiKey}
-            />
-            <ShiftModal
-                isOpen={isShiftModalOpen}
-                onClose={() => setIsShiftModalOpen(false)}
-                daySchedule={selectedDayForEdit}
-                onUpdateDay={handleUpdateDay}
-            />
-            <DayDetailView
-                isOpen={isDayDetailOpen}
-                onClose={() => setIsDayDetailOpen(false)}
-                daySchedule={selectedDayForDetail}
-            />
-            <HistoryPanel
-                isOpen={isHistoryPanelOpen}
-                onClose={() => setIsHistoryPanelOpen(false)}
-                entries={analysisHistory}
-                onLoad={handleLoadHistory}
-                onDelete={handleDeleteHistory}
-            />
-             <ShareModal 
-                isOpen={isShareModalOpen}
-                onClose={() => setIsShareModalOpen(false)}
-                schedule={weekSchedule}
-                weekDays={weekDays}
-                totalHours={formattedTotalHours}
-                dateRange={currentWeekDateRange}
-            />
-            
-            <main className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
-                <header className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                    <div className="text-center sm:text-left">
-                         <h1 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 animate-text-glow">
-                           Analizzatore Turni
-                         </h1>
-                        <p className="text-gray-400 text-sm capitalize">
-                          {viewMode === 'week' 
-                            ? `${weekDays[0].date.toLocaleDateString('it-IT', {day:'numeric', month:'long'})} - ${weekDays[6].date.toLocaleDateString('it-IT', {day:'numeric', month:'long', year:'numeric'})}`
-                            : currentDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
-                          }
-                        </p>
+            <ApiKeyModal isOpen={isApiKeyModalOpen} onClose={() => setIsApiKeyModalOpen(false)} onSave={handleApiKeySave} currentApiKey={apiKey}/>
+            <ShiftModal isOpen={isShiftModalOpen} onClose={() => setIsShiftModalOpen(false)} daySchedule={selectedDayForEdit} onUpdateDay={handleUpdateDay} />
+            <DayDetailView isOpen={isDayDetailOpen} onClose={() => setIsDayDetailOpen(false)} daySchedule={selectedDayForDetail} />
+            <HistoryPanel isOpen={isHistoryPanelOpen} onClose={() => setIsHistoryPanelOpen(false)} entries={analysisHistory} onLoad={handleLoadHistory} onDelete={handleDeleteHistory} />
+            <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} schedule={weekSchedule} weekDays={getWeekDays(weekStartDate)} totalHours={formattedTotalHours} dateRange={currentAnalysis?.dateRange}/>
+
+
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 animate-breathing"><path d="M12 2a10 10 0 1 0 10 10c0-4.42-2.87-8.1-7-9.44"/><path d="m13 2-3 9 9 3-3-9Z"/></svg>
+                        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 animate-text-glow">
+                           Orario Intelligente
+                        </h1>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-4">
-                        <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
-                        <WeekNavigator onPrevious={handlePrevious} onNext={handleNext} />
-                        {hasScheduleThisWeek && <HourTracker schedule={weekSchedule} />}
-                         <button
-                            onClick={() => setIsShareModalOpen(true)}
-                            disabled={!hasScheduleThisWeek}
-                            className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
-                            aria-label="Condividi orario"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18"cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                          </button>
-                         <button
-                            onClick={() => setIsApiKeyModalOpen(true)}
-                            className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5"
-                            aria-label="Impostazioni"
-                          >
-                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                          </button>
-                         <button
-                            onClick={() => setIsHistoryPanelOpen(true)}
-                            className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5"
-                            aria-label="Storico"
-                          >
-                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M12 8v4l4 2"/></svg>
-                          </button>
+                     <div className="flex items-center gap-2 sm:gap-4">
+                        <button onClick={() => setIsShareModalOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200" title="Condividi">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+                        </button>
+                         <button onClick={() => setIsHistoryPanelOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200" title="Storico">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                        <button onClick={() => setIsApiKeyModalOpen(true)} className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200" title="Impostazioni">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
                     </div>
                 </header>
                 
-                <div className="mb-6 animate-slideInUp" style={{animationDelay: '100ms'}}>
-                     <ImageUploader onAnalyze={handleAnalyze} isLoading={isLoading} />
-                </div>
-                
-                {error && <ErrorDisplay message={error} />}
-                
-                {currentAnalysis && <AnalysisSummary summary={currentAnalysis.summary} />}
-                
-                <div className="mt-6">
-                  {viewMode === 'week' ? (
-                     weekSchedule.some(d => d.type !== 'empty') ? (
-                       <CalendarGrid
-                         weekDays={weekDays.map(d => d.name)}
-                         schedule={weekSchedule}
-                         onDayClick={handleWeekDayClick}
-                         now={now}
-                       />
-                     ) : (
-                       !isLoading && <WelcomeMessage />
-                     )
-                   ) : (
-                    <MonthCalendar 
-                        currentDate={currentDate}
-                        scheduleData={allSchedulesForMonth}
-                        onDayClick={handleMonthDayClick}
-                    />
-                  )}
-                </div>
+                 {error && <ErrorDisplay message={error} />}
 
-            </main>
+                <main className="space-y-6">
+                    <ImageUploader onAnalyze={handleAnalyze} isLoading={isLoading} initialPreview={null}/>
+                   
+                    {hasScheduleThisWeek && <AnalysisSummary summary={currentAnalysis?.summary ?? null} />}
+                    
+                    {/* Calendar Section */}
+                    <div className="bg-gray-800/20 p-4 sm:p-6 rounded-2xl ring-1 ring-white/10">
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-xl sm:text-2xl font-bold text-white">
+                                    {currentDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                                </span>
+                                {viewMode === 'week' && (
+                                     <span className="text-sm text-gray-400">
+                                       {`${weekStartDate.getDate()} - ${new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + 6).getDate()}`}
+                                     </span>
+                                )}
+                            </div>
+                           
+                            <div className="flex items-center gap-2">
+                               <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
+                               <button onClick={handleGoToToday} className="px-3 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 bg-slate-700/50 text-gray-300 hover:bg-slate-600">Oggi</button>
+                               <WeekNavigator onPrevious={handlePrevious} onNext={handleNext} />
+                            </div>
+                        </div>
+
+                        <div key={viewMode + currentDate.toISOString()} className="animate-scaleIn">
+                            {viewMode === 'week' ? (
+                                <CalendarGrid
+                                weekDays={weekDays.map(d => d.name)}
+                                schedule={weekSchedule}
+                                onDayClick={handleDayClick}
+                                now={now}
+                                />
+                            ) : (
+                                <MonthCalendar 
+                                    currentDate={currentDate}
+                                    scheduleData={analysisHistory.flatMap(e => e.schedule)}
+                                    onDayClick={(date: Date) => handleDayClick({date: formatDate(date), type: 'empty', shifts: []})}
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                    {!currentAnalysis && !hasScheduleThisWeek && <WelcomeMessage />}
+                </main>
+            </div>
         </div>
     );
 };
