@@ -7,6 +7,7 @@ interface CalendarGridProps {
   schedule: DaySchedule[];
   onDayClick: (daySchedule: DaySchedule) => void;
   now: Date;
+  isEditable: boolean;
 }
 
 const RestDayContent = () => (
@@ -40,7 +41,7 @@ const RestDayContent = () => (
 );
 
 
-const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: () => void; delay: number; now: Date; }> = ({ dayName, daySchedule, onClick, delay, now }) => {
+const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: () => void; delay: number; now: Date; isEditable: boolean; }> = ({ dayName, daySchedule, onClick, delay, now, isEditable }) => {
   const { date, type, shifts, isUncertain } = daySchedule;
   const dayDate = new Date(date + 'T00:00:00');
   const dayOfMonth = dayDate.getDate();
@@ -51,20 +52,22 @@ const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: ()
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const timelinePercent = (nowMinutes / (24 * 60)) * 100;
 
-
   let cardClasses = "relative flex flex-col rounded-xl p-3 sm:p-4 h-44 sm:h-52 transition-all duration-300 shadow-lg transform opacity-0 group ";
   let content;
   
   cardClasses += " animate-scaleIn";
   
+  if (isEditable) {
+      cardClasses += " cursor-pointer hover:ring-2 hover:ring-teal-400";
+  }
+  
   if (isPast) {
       cardClasses += " opacity-60 filter grayscale-[50%]";
   }
 
-
   switch (type) {
     case 'work':
-      cardClasses += " bg-blue-900/30 ring-1 ring-blue-500/50 cursor-pointer hover:bg-blue-900/50 hover:ring-blue-400";
+      cardClasses += " bg-blue-900/30 ring-1 ring-blue-500/50 hover:bg-blue-900/50";
       content = (
         <div className="relative w-full h-full">
             {shifts.map((shift: Shift, index: number) => {
@@ -90,7 +93,7 @@ const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: ()
       content = <RestDayContent />;
       break;
     default: // 'empty'
-      cardClasses += "bg-slate-800/50";
+      cardClasses += "bg-slate-800/50 hover:bg-slate-700/50";
       content = (
         <div className="flex items-center justify-center h-full text-gray-600">
           <span>-</span>
@@ -100,7 +103,7 @@ const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: ()
   }
 
   return (
-    <div className={cardClasses} onClick={type === 'work' ? onClick : undefined} style={{ animationDelay: `${delay}ms` }}>
+    <div className={cardClasses} onClick={isEditable ? onClick : undefined} style={{ animationDelay: `${delay}ms` }}>
       {isUncertain && (
         <div className="absolute top-2.5 right-2.5 z-10" title="L'IA ha interpretato questo giorno con incertezza. Si prega di controllare.">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400 animate-pulse"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
@@ -127,7 +130,7 @@ const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: ()
 };
 
 
-export const CalendarGrid: React.FC<CalendarGridProps> = ({ weekDays, schedule, onDayClick, now }) => {
+export const CalendarGrid: React.FC<CalendarGridProps> = ({ weekDays, schedule, onDayClick, now, isEditable }) => {
   if (!schedule || schedule.length === 0) {
     return (
       <div className="text-center py-10 text-gray-500">
@@ -146,6 +149,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({ weekDays, schedule, 
           onClick={() => onDayClick(daySchedule)}
           delay={index * 50}
           now={now}
+          isEditable={isEditable}
         />
       ))}
     </div>

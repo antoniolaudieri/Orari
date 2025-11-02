@@ -60,6 +60,28 @@ export const formatDecimalHours = (hoursDecimal: number): string => {
   return `${hours}h ${minutes}m`;
 };
 
+export const formatDateRange = (startDate: Date): string => {
+    const start = getWeekStartDate(new Date(startDate));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    const startDay = start.getDate();
+    const endDay = end.getDate();
+    const startMonth = start.toLocaleDateString('it-IT', { month: 'long' });
+    const endMonth = end.toLocaleDateString('it-IT', { month: 'long' });
+    const year = end.getFullYear();
+
+    if (startMonth === endMonth) {
+        return `${startDay} - ${endDay} ${startMonth} ${year}`;
+    } else {
+        const startYear = start.getFullYear();
+        if (startYear !== year) {
+             return `${startDay} ${startMonth} ${startYear} - ${endDay} ${endMonth} ${year}`;
+        }
+        return `${startDay} ${startMonth} - ${endDay} ${endMonth} ${year}`;
+    }
+};
+
 
 export const getMonthGrid = (date: Date): { date: Date; isCurrentMonth: boolean }[] => {
   const year = date.getFullYear();

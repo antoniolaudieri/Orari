@@ -12,11 +12,11 @@ import { AnalysisSummary } from './components/AnalysisSummary.js';
 import { HistoryPanel } from './components/HistoryPanel.js';
 import { ViewSwitcher } from './components/ViewSwitcher.js';
 import { MonthCalendar } from './components/MonthCalendar.js';
-import { DayDetailView } from './components/DayDetailView.js';
 import { ApiKeyModal } from './components/ApiKeyModal.js';
 import { ShareModal } from './components/ShareModal.js';
+import { DateEditModal } from './components/DateEditModal.js';
 import type { DaySchedule, AnalysisEntry, Shift } from './types.js';
-import { getWeekStartDate, formatDate, getWeekDays, calculateHours, formatDecimalHours } from './utils/dateUtils.js';
+import { getWeekStartDate, formatDate, getWeekDays, calculateHours, formatDecimalHours, formatDateRange } from './utils/dateUtils.js';
 import { createImageThumbnail } from './utils/imageUtils.js';
 
 const geminiModel = 'gemini-2.5-flash';
@@ -88,12 +88,11 @@ const App: React.FC = () => {
     const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [selectedDayForEdit, setSelectedDayForEdit] = useState<DaySchedule | null>(null);
-    const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
-    const [selectedDayForDetail, setSelectedDayForDetail] = useState<DaySchedule | null>(null);
     const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
     const [analysisHistory, setAnalysisHistory] = useState<AnalysisEntry[]>([]);
     const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isDateEditModalOpen, setIsDateEditModalOpen] = useState(false);
     const [now, setNow] = useState(new Date());
     const calendarRef = useRef<HTMLDivElement>(null);
 
@@ -107,8 +106,6 @@ const App: React.FC = () => {
 
         const weekStart = getWeekStartDate(new Date(currentDate));
 
-        // Prioritize the currently active analysis if it matches the week being viewed.
-        // This ensures that a freshly loaded or newly analyzed schedule is displayed correctly.
         if (currentAnalysis) {
             const analysisWeekStart = getWeekStartDate(new Date(currentAnalysis.schedule[0].date));
             if (analysisWeekStart.getTime() === weekStart.getTime()) {
@@ -116,8 +113,6 @@ const App: React.FC = () => {
             }
         }
         
-        // If the current analysis doesn't match (e.g., user navigated away),
-        // search the history for a schedule that matches the current view.
         for (const historyEntry of analysisHistory) {
              const historyWeekStart = getWeekStartDate(new Date(historyEntry.schedule[0].date));
              if (weekStart.getTime() === historyWeekStart.getTime()) {
@@ -125,7 +120,6 @@ const App: React.FC = () => {
              }
         }
         
-        // If no matching schedule is found in the current analysis or history, display an empty week.
         return weekDays.map(d => ({ date: formatDate(d.date), type: 'empty', shifts: [] }));
 
     }, [currentAnalysis, currentDate, analysisHistory, weekDays]);
@@ -168,9 +162,8 @@ const App: React.FC = () => {
         }
     }, [apiKey]);
     
-    // Timer to update "now" for the timeline in CalendarGrid
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 60000); // Update every minute
+        const timer = setInterval(() => setNow(new Date()), 60000);
         return () => clearInterval(timer);
     }, []);
 
@@ -265,7 +258,6 @@ const App: React.FC = () => {
         } catch(e: any) {
             console.error("Failed to save analysis:", e);
             setError(`Impossibile salvare l'analisi: ${e.message}`);
-            // Return the original object so the UI can still update
             return { id: Date.now(), ...analysisResult };
         }
     };
@@ -296,7 +288,7 @@ const App: React.FC = () => {
             }
         } catch (e: any) {
             setError(`Impossibile eliminare la voce: ${e.message}`);
-            setAnalysisHistory(originalHistory); // Restore on failure
+            setAnalysisHistory(originalHistory);
         }
     };
 
@@ -308,10 +300,9 @@ const App: React.FC = () => {
             setCurrentDate(entryStartDate);
             setIsHistoryPanelOpen(false);
 
-            // Scroll to calendar view for better UX on mobile
             setTimeout(() => {
                 calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 300); // Match animation duration
+            }, 300);
         }
     };
 
@@ -344,29 +335,108 @@ const App: React.FC = () => {
     }
 
     const handleDayClick = (daySchedule: DaySchedule) => {
-        if(viewMode === 'month') {
+        if (viewMode === 'month') {
              setCurrentDate(new Date(daySchedule.date));
              setViewMode('week');
-        } else {
-             setSelectedDayForDetail(daySchedule);
-             setIsDayDetailOpen(true);
+        } else if (hasScheduleThisWeek) {
+             setSelectedDayForEdit(daySchedule);
+             setIsShiftModalOpen(true);
         }
     };
 
-    const handleUpdateDay = (updatedDay: DaySchedule) => {
+    const generateUpdatedSummary = (schedule: DaySchedule[]): string => {
+        const workDays = schedule.filter(d => d.type === 'work' && d.shifts.length > 0).length;
+        const restDays = 7 - workDays;
+        const totalHours = schedule.reduce((total, day) => {
+            if (day.type === 'work') {
+                return total + day.shifts.reduce((dayTotal, shift) => dayTotal + calculateHours(shift.start, shift.end), 0);
+            }
+            return total;
+        }, 0);
+        const formattedHours = formatDecimalHours(totalHours);
+        return `Ciao Ilaria! Riepilogo aggiornato: ora hai ${workDays} giorni lavorativi e ${restDays} di riposo, per un totale di ${formattedHours}. Continua così, sei una forza!`;
+    };
+
+    const handleUpdateDay = async (updatedDay: DaySchedule) => {
         if (currentAnalysis) {
-            const updatedSchedule = currentAnalysis.schedule.map(d => 
+            const updatedSchedule = currentAnalysis.schedule.map(d =>
                 d.date === updatedDay.date ? updatedDay : d
             );
-            const updatedAnalysis = { ...currentAnalysis, schedule: updatedSchedule };
-            // TODO: Here you could also re-calculate the summary if needed
+            const updatedSummary = generateUpdatedSummary(updatedSchedule);
+            const updatedAnalysis: AnalysisEntry = {
+                ...currentAnalysis,
+                schedule: updatedSchedule,
+                summary: updatedSummary,
+            };
+
             setCurrentAnalysis(updatedAnalysis);
-            // TODO: You should also update this in the backend history
+            setAnalysisHistory(prev => prev.map(entry => entry.id === updatedAnalysis.id ? updatedAnalysis : entry));
+            
+            setIsShiftModalOpen(false);
+            setSelectedDayForEdit(null);
+
+            try {
+                const response = await fetch(`/api/history/${currentAnalysis.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ schedule: updatedSchedule, summary: updatedSummary })
+                });
+                if (!response.ok) {
+                    throw new Error("Errore nell'aggiornamento dell'analisi sul server.");
+                }
+            } catch (e: any) {
+                console.error("Failed to update analysis:", e);
+                setError(`Impossibile salvare le modifiche: ${e.message}`);
+            }
+        } else {
+           setIsShiftModalOpen(false);
+           setSelectedDayForEdit(null);
         }
-        setIsShiftModalOpen(false);
-        setSelectedDayForEdit(null);
     };
     
+    const handleUpdateDateRange = async (newDate: Date) => {
+        if (currentAnalysis) {
+            const newWeekStartDate = getWeekStartDate(newDate);
+            const newWeekDays = getWeekDays(newWeekStartDate);
+
+            const updatedSchedule = currentAnalysis.schedule.map((day, index) => ({
+                ...day,
+                date: formatDate(newWeekDays[index].date)
+            }));
+            
+            const newDateRange = formatDateRange(newWeekStartDate);
+
+            const updatedAnalysis: AnalysisEntry = {
+                ...currentAnalysis,
+                schedule: updatedSchedule,
+                dateRange: newDateRange,
+            };
+
+            setCurrentAnalysis(updatedAnalysis);
+            setCurrentDate(newWeekStartDate);
+            setAnalysisHistory(prev => prev.map(entry => entry.id === updatedAnalysis.id ? updatedAnalysis : entry));
+            
+            setIsDateEditModalOpen(false);
+
+            try {
+                const response = await fetch(`/api/history/${currentAnalysis.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        schedule: updatedSchedule, 
+                        dateRange: newDateRange 
+                    })
+                });
+                if (!response.ok) {
+                    throw new Error("Errore nell'aggiornamento della data sul server.");
+                }
+            } catch (e: any) {
+                console.error("Failed to update date range:", e);
+                setError(`Impossibile salvare la modifica della data: ${e.message}`);
+            }
+        }
+    };
+
     const handleApiKeySave = (newKey: string) => {
         if (newKey) {
             setApiKey(newKey);
@@ -377,37 +447,18 @@ const App: React.FC = () => {
             setError("La chiave API non può essere vuota.");
         }
     };
-    
-    const currentDisplaySchedule = useMemo(() => {
-        if (viewMode === 'month') {
-            // Find all schedules in history that are in the current month
-            const month = currentDate.getMonth();
-            const year = currentDate.getFullYear();
-            const monthSchedules = analysisHistory.flatMap(entry => 
-                entry.schedule.filter(day => {
-                    const d = new Date(day.date);
-                    return d.getMonth() === month && d.getFullYear() === year;
-                })
-            );
-            return monthSchedules;
-        }
-        return weekSchedule;
-
-    }, [viewMode, currentDate, analysisHistory, weekSchedule]);
-
 
     return (
         <div className="min-h-screen p-2 sm:p-4 lg:p-6">
             {isLoading && <LoadingOverlay />}
             <ApiKeyModal isOpen={isApiKeyModalOpen} onClose={() => setIsApiKeyModalOpen(false)} onSave={handleApiKeySave} currentApiKey={apiKey}/>
             <ShiftModal isOpen={isShiftModalOpen} onClose={() => setIsShiftModalOpen(false)} daySchedule={selectedDayForEdit} onUpdateDay={handleUpdateDay} />
-            <DayDetailView isOpen={isDayDetailOpen} onClose={() => setIsDayDetailOpen(false)} daySchedule={selectedDayForDetail} />
             <HistoryPanel isOpen={isHistoryPanelOpen} onClose={() => setIsHistoryPanelOpen(false)} entries={analysisHistory} onLoad={handleLoadHistory} onDelete={handleDeleteHistory} />
             <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} schedule={weekSchedule} weekDays={getWeekDays(weekStartDate)} totalHours={formattedTotalHours} dateRange={currentAnalysis?.dateRange}/>
+            <DateEditModal isOpen={isDateEditModalOpen} onClose={() => setIsDateEditModalOpen(false)} onSave={handleUpdateDateRange} currentStartDate={currentDate} />
 
 
             <div className="max-w-7xl mx-auto">
-                {/* Header */}
                 <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                     <div className="flex items-center gap-3">
                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="animate-breathing">
@@ -445,17 +496,24 @@ const App: React.FC = () => {
                    
                     {hasScheduleThisWeek && <AnalysisSummary summary={currentAnalysis?.summary ?? null} />}
                     
-                    {/* Calendar Section */}
                     <div ref={calendarRef} className="bg-gray-800/20 p-4 sm:p-6 rounded-2xl ring-1 ring-white/10">
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-xl sm:text-2xl font-bold text-white">
-                                    {currentDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
-                                </span>
-                                {viewMode === 'week' && (
-                                     <span className="text-sm text-gray-400">
-                                       {`${weekStartDate.getDate()} - ${new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + 6).getDate()}`}
-                                     </span>
+                             <div className="flex items-center gap-2">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-xl sm:text-2xl font-bold text-white">
+                                        {viewMode === 'week' && currentAnalysis?.dateRange 
+                                            ? currentAnalysis.dateRange 
+                                            : currentDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                                    </span>
+                                </div>
+                                {currentAnalysis && viewMode === 'week' && (
+                                    <button 
+                                        onClick={() => setIsDateEditModalOpen(true)}
+                                        className="ml-2 p-1.5 rounded-full text-gray-400 hover:bg-slate-700 hover:text-white transition-colors"
+                                        title="Modifica intervallo di date"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                    </button>
                                 )}
                             </div>
                            
@@ -473,6 +531,7 @@ const App: React.FC = () => {
                                 schedule={weekSchedule}
                                 onDayClick={handleDayClick}
                                 now={now}
+                                isEditable={hasScheduleThisWeek}
                                 />
                             ) : (
                                 <MonthCalendar 
