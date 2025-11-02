@@ -14,8 +14,9 @@ import { ViewSwitcher } from './components/ViewSwitcher.js';
 import { MonthCalendar } from './components/MonthCalendar.js';
 import { DayDetailView } from './components/DayDetailView.js';
 import { ApiKeyModal } from './components/ApiKeyModal.js';
+import { ShareModal } from './components/ShareModal.js';
 import type { DaySchedule, AnalysisEntry, Shift } from './types.js';
-import { getWeekStartDate, formatDate, getWeekDays } from './utils/dateUtils.js';
+import { getWeekStartDate, formatDate, getWeekDays, calculateHours, formatDecimalHours } from './utils/dateUtils.js';
 import { createImageThumbnail } from './utils/imageUtils.js';
 
 const geminiModel = 'gemini-2.5-flash';
@@ -68,8 +69,8 @@ Regole di Analisi:
 3.  **Analisi Giornaliera**: Per ogni giorno, estrai i turni di lavoro. Un giorno può avere uno o più turni. Ogni turno ha un orario di inizio e uno di fine in formato HH:MM (24 ore).
 4.  **Tipi di Giornata**:
     *   'work': Se ci sono turni di lavoro.
-    *   'rest': Se è indicato esplicitamente "RIPOSO" o una dicitura simile.
-    *   'empty': Se la casella del giorno è vuota o non interpretabile.
+    *   'rest': Se è indicato esplicitamente "RIPOSO", una singola "R", un trattino ("-"), o una dicitura simile.
+    *   'empty': Se la casella del giorno è vuota o non interpretabile e non rientra nei casi precedenti.
 5.  **Incertezza**: Se non riesci a leggere chiaramente un orario o un giorno, imposta \`isUncertain\` a \`true\`.`;
 
 const App: React.FC = () => {
@@ -88,6 +89,7 @@ const App: React.FC = () => {
     const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
     const [analysisHistory, setAnalysisHistory] = useState<AnalysisEntry[]>([]);
     const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [now, setNow] = useState(new Date());
 
     // Memoized values
@@ -117,6 +119,22 @@ const App: React.FC = () => {
         return weekDays.map(d => ({ date: formatDate(d.date), type: 'empty', shifts: [] }));
 
     }, [currentAnalysis, weekDays, currentDate, analysisHistory]);
+    
+    const hasScheduleThisWeek = useMemo(() => weekSchedule.some(d => d.type !== 'empty'), [weekSchedule]);
+    
+    const formattedTotalHours = useMemo(() => {
+         const totalHours = weekSchedule.reduce((total, day) => {
+            if (day.type === 'work') {
+                const dayHours = day.shifts.reduce((dayTotal: number, shift: Shift) => {
+                return dayTotal + calculateHours(shift.start, shift.end);
+                }, 0);
+                return total + dayHours;
+            }
+            return total;
+        }, 0);
+        return formatDecimalHours(totalHours);
+    }, [weekSchedule]);
+
 
     // Effects
     useEffect(() => {
@@ -349,6 +367,15 @@ const App: React.FC = () => {
     const allSchedulesForMonth = useMemo(() => {
         return analysisHistory.flatMap(entry => entry.schedule);
     }, [analysisHistory]);
+    
+    const currentWeekDateRange = useMemo(() => {
+       const entry = analysisHistory.find(e => {
+            const historyStart = new Date(e.schedule[0].date).getTime();
+            const weekStart = getWeekStartDate(new Date(currentDate)).getTime();
+            return historyStart === weekStart;
+       });
+       return entry ? entry.dateRange : currentAnalysis?.dateRange;
+    }, [currentDate, analysisHistory, currentAnalysis]);
 
     return (
         <div className="min-h-screen">
@@ -377,6 +404,14 @@ const App: React.FC = () => {
                 onLoad={handleLoadHistory}
                 onDelete={handleDeleteHistory}
             />
+             <ShareModal 
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                schedule={weekSchedule}
+                weekDays={weekDays}
+                totalHours={formattedTotalHours}
+                dateRange={currentWeekDateRange}
+            />
             
             <main className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
                 <header className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
@@ -394,7 +429,15 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-2 sm:gap-4">
                         <ViewSwitcher viewMode={viewMode} setViewMode={setViewMode} />
                         <WeekNavigator onPrevious={handlePrevious} onNext={handleNext} />
-                        {weekSchedule.length > 0 && <HourTracker schedule={weekSchedule} />}
+                        {hasScheduleThisWeek && <HourTracker schedule={weekSchedule} />}
+                         <button
+                            onClick={() => setIsShareModalOpen(true)}
+                            disabled={!hasScheduleThisWeek}
+                            className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                            aria-label="Condividi orario"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18"cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                          </button>
                          <button
                             onClick={() => setIsApiKeyModalOpen(true)}
                             className="p-2.5 rounded-lg bg-slate-700/50 hover:bg-teal-500 text-gray-300 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-400 transform hover:-translate-y-0.5"
