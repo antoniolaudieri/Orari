@@ -70,7 +70,7 @@ Regole di Analisi:
     *   'work': Se ci sono turni di lavoro.
     *   'rest': Se è indicato esplicitamente "RIPOSO" o una dicitura simile.
     *   'empty': Se la casella del giorno è vuota o non interpretabile.
-5.  **Incertezza**: Se non riesci a leggere chiaramente un orario o un giorno, imposta \\\`isUncertain\\\` a \\\`true\\\`.`;
+5.  **Incertezza**: Se non riesci a leggere chiaramente un orario o un giorno, imposta \`isUncertain\` a \`true\`.`;
 
 const App: React.FC = () => {
     // State
@@ -93,7 +93,7 @@ const App: React.FC = () => {
     // Memoized values
     const weekStartDate = useMemo(() => getWeekStartDate(new Date(currentDate)), [currentDate]);
     const weekDays = useMemo(() => getWeekDays(weekStartDate), [weekStartDate]);
-    const weekSchedule = useMemo(() => {
+    const weekSchedule: DaySchedule[] = useMemo(() => {
         if (!currentAnalysis && analysisHistory.length === 0) return weekDays.map(d => ({ date: formatDate(d.date), type: 'empty', shifts: [] }));
 
         const weekStart = getWeekStartDate(new Date(currentDate));
@@ -180,8 +180,11 @@ const App: React.FC = () => {
                 },
             });
             
-            const resultText = response.text.trim();
-            const parsedResult = JSON.parse(resultText);
+            const resultText = response.text;
+            if (!resultText) {
+                 throw new Error("L'IA ha restituito una risposta vuota.");
+            }
+            const parsedResult = JSON.parse(resultText.trim());
 
             if (!parsedResult.schedule || parsedResult.schedule.length !== 7) {
                  throw new Error("L'IA ha restituito un formato di orario non valido.");
