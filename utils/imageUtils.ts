@@ -55,11 +55,11 @@ export const generateScheduleSvg = (
     totalHours: string,
     dateRange: string | undefined
 ): string => {
-    const width = 800;
-    const height = 450;
-    const cardWidth = 100;
-    const cardHeight = 200;
-    const gap = 15;
+    const width = 600; // Ridotto da 800 per migliore compatibilità mobile
+    const height = 400; // Altezza leggermente ridotta
+    const cardWidth = 72; // Larghezza card adattata
+    const cardHeight = 180; // Altezza card adattata
+    const gap = 10; // Spaziatura adattata
     const totalWidth = 7 * cardWidth + 6 * gap;
     const startX = (width - totalWidth) / 2;
     
@@ -80,7 +80,7 @@ export const generateScheduleSvg = (
         }
 
         return `
-            <div class="card ${day.type}" style="position: absolute; left: ${x}px; top: 120px; width: ${cardWidth}px; height: ${cardHeight}px;">
+            <div class="card ${day.type}" style="position: absolute; left: ${x}px; top: 100px; width: ${cardWidth}px; height: ${cardHeight}px;">
                 <div class="day-header">
                     <span class="day-name">${dayName}</span>
                     <span class="day-date">${dayDate}</span>
@@ -93,7 +93,7 @@ export const generateScheduleSvg = (
     }).join('');
 
     const svgString = `
-        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
             <foreignObject width="100%" height="100%">
                 <div xmlns="http://www.w3.org/1999/xhtml">
                     <style>
@@ -111,20 +111,20 @@ export const generateScheduleSvg = (
                             position: relative;
                         }
                         .header-text {
-                            font-size: 28px;
+                            font-size: 24px; /* Ridotto */
                             font-weight: bold;
                             color: #fff;
                             margin-bottom: 5px;
                         }
                         .date-range {
-                            font-size: 16px;
+                            font-size: 14px; /* Ridotto */
                             color: #94A3B8;
-                            margin-bottom: 30px;
+                            margin-bottom: 20px; /* Ridotto */
                         }
                         .card {
                             background-color: #1E293B;
-                            border-radius: 12px;
-                            padding: 12px;
+                            border-radius: 10px; /* Leggermente più piccolo */
+                            padding: 10px; /* Leggermente più piccolo */
                             box-sizing: border-box;
                             display: flex;
                             flex-direction: column;
@@ -141,15 +141,15 @@ export const generateScheduleSvg = (
                             justify-content: space-between;
                             align-items: baseline;
                             font-weight: bold;
-                            margin-bottom: 10px;
+                            margin-bottom: 8px; /* Leggermente più piccolo */
                         }
                         .day-name {
-                            font-size: 14px;
+                            font-size: 13px; /* Ridotto */
                             text-transform: capitalize;
                             color: #CBD5E1;
                         }
                         .day-date {
-                            font-size: 18px;
+                            font-size: 16px; /* Ridotto */
                             color: #94A3B8;
                         }
                         .shifts-container {
@@ -158,40 +158,40 @@ export const generateScheduleSvg = (
                             flex-direction: column;
                             align-items: center;
                             justify-content: center;
-                            gap: 8px;
+                            gap: 6px; /* Leggermente più piccolo */
                         }
                         .shift {
                             background-color: #0F172A;
                             color: #E2E8F0;
-                            border-radius: 6px;
-                            padding: 4px 8px;
-                            font-size: 13px;
+                            border-radius: 4px;
+                            padding: 3px 6px;
+                            font-size: 12px; /* Ridotto */
                             font-weight: 500;
                             width: 100%;
                             text-align: center;
                             box-sizing: border-box;
                         }
                         .rest-text {
-                            font-size: 20px;
+                            font-size: 18px; /* Ridotto */
                             font-weight: bold;
                             color: #2DD4BF;
                         }
                         .empty-text {
-                            font-size: 32px;
+                            font-size: 28px; /* Ridotto */
                             color: #475569;
                         }
                         .footer {
                             position: absolute;
-                            bottom: 25px;
-                            right: 30px;
+                            bottom: 20px; /* Adattato */
+                            right: 25px; /* Adattato */
                             text-align: right;
                         }
                         .footer-label {
-                            font-size: 14px;
+                            font-size: 12px; /* Ridotto */
                             color: #94A3B8;
                         }
                         .footer-value {
-                            font-size: 22px;
+                            font-size: 20px; /* Ridotto */
                             font-weight: bold;
                             color: #fff;
                         }
