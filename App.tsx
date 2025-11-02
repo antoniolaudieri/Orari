@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Type } from '@google/genai';
 import { ImageUploader } from './components/ImageUploader.js';
 import { CalendarGrid } from './components/CalendarGrid.js';
@@ -75,7 +75,7 @@ Regole di Analisi:
 6.  **Genera il Sommario (campo 'summary')**: Crea un riassunto testuale dell'orario per Ilaria.
     *   **Inizio**: Inizia sempre salutando "Ciao Ilaria!".
     *   **Contenuto**: Indica il numero di giorni lavorativi, di riposo e il totale delle ore calcolate.
-    *   **Fine**: Concludi sempre con una frase divertente o motivazionale sulla settimana lavorativa. Esempi di frasi da cui prendere spunto: 'Pronta a conquistare il mondo... dopo un caffè!', 'Che la forza (e il caffè) siano con te!', 'Un'altra settimana, un'altra vittoria!', 'Ricorda: il weekend è sempre più vicino di quanto pensi!', 'Dai che anche questa settimana la portiamo a casa!'.`;
+    *   **Fine**: Concludi OBBLIGATORIAMENTE con una frase motivazionale creativa e personalizzata per Ilaria, per darle la carica per la settimana. Sii incoraggiante e originale. Esempi: 'Forza Ilaria, un'altra settimana da dominare!', 'Ricorda: ogni turno è un passo verso i tuoi obiettivi!', 'Che questa settimana ti porti un sacco di soddisfazioni!'.`;
 
 const App: React.FC = () => {
     // State
@@ -95,6 +95,7 @@ const App: React.FC = () => {
     const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [now, setNow] = useState(new Date());
+    const calendarRef = useRef<HTMLDivElement>(null);
 
     // Memoized values
     const weekStartDate = useMemo(() => getWeekStartDate(new Date(currentDate)), [currentDate]);
@@ -306,6 +307,11 @@ const App: React.FC = () => {
             const entryStartDate = new Date(entry.schedule[0].date);
             setCurrentDate(entryStartDate);
             setIsHistoryPanelOpen(false);
+
+            // Scroll to calendar view for better UX on mobile
+            setTimeout(() => {
+                calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300); // Match animation duration
         }
     };
 
@@ -440,7 +446,7 @@ const App: React.FC = () => {
                     {hasScheduleThisWeek && <AnalysisSummary summary={currentAnalysis?.summary ?? null} />}
                     
                     {/* Calendar Section */}
-                    <div className="bg-gray-800/20 p-4 sm:p-6 rounded-2xl ring-1 ring-white/10">
+                    <div ref={calendarRef} className="bg-gray-800/20 p-4 sm:p-6 rounded-2xl ring-1 ring-white/10">
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                             <div className="flex items-baseline gap-2">
                                 <span className="text-xl sm:text-2xl font-bold text-white">

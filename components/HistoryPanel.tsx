@@ -40,10 +40,10 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose, ent
         </div>
         <div className="overflow-y-auto p-4">
           {sortedEntries.length > 0 ? (
-            <ul className="space-y-4">
+            <ul className="space-y-3">
               {sortedEntries.map((entry, index) => (
-                <li key={entry.id} className="bg-slate-900/50 p-4 rounded-lg flex flex-col sm:flex-row items-center gap-4 ring-1 ring-slate-700 opacity-0 animate-slideInUp" style={{ animationDelay: `${index * 75}ms`}}>
-                  <div className="w-24 h-16 flex-shrink-0 bg-slate-800/50 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-slate-700">
+                <li key={entry.id} className="bg-slate-900/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-center gap-4 ring-1 ring-slate-700 opacity-0 animate-slideInUp" style={{ animationDelay: `${index * 75}ms`}}>
+                  <div className="w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0 bg-slate-800/50 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-slate-700">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
                   </div>
                   <div className="flex-1 text-center sm:text-left">
