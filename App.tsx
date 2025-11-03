@@ -368,7 +368,7 @@ export const App: React.FC = () => {
                 {currentAnalysis ? (
                     <div className="mt-8">
                         <AnalysisSummary summary={currentAnalysis.summary} />
-                         <div className="flex flex-col md:flex-row justify-between items-center gap-4 my-6 animate-slideInUp" style={{ animationDelay: '200ms' }}>
+                         <div className="flex flex-col md:flex-row justify-between items-center gap-4 my-4 sm:my-6 animate-slideInUp" style={{ animationDelay: '200ms' }}>
                              <div className="flex items-baseline gap-4">
                                 <h2 className="text-xl sm:text-2xl font-semibold text-white">{formatDateRange(currentDate)}</h2>
                                 <button onClick={() => setIsDateEditModalOpen(true)} className="p-1 text-gray-400 hover:text-teal-300 transition-colors">

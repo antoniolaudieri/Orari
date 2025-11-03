@@ -72,7 +72,6 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({ isOpen, onClose, daySche
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-teal-300 capitalize">{formattedDate}</h2>
           <button onClick={handleClose} className="p-1.5 rounded-full text-gray-400 hover:bg-slate-700 hover:text-white transition-colors">
-             {/* FIX: Corrected a typo in the viewBox attribute of the SVG element. */}
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>

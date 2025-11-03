@@ -111,7 +111,7 @@ const DayCard: React.FC<{ dayName: string; daySchedule: DaySchedule; onClick: ()
       )}
       <div className="flex justify-between items-baseline mb-2">
         <span className="font-bold text-sm capitalize text-gray-300">{dayName.substring(0, 3)}</span>
-        <span className="text-lg font-mono text-gray-400">{String(dayOfMonth).padStart(2, '0')}</span>
+        <span className="text-base sm:text-lg font-mono text-gray-400">{String(dayOfMonth).padStart(2, '0')}</span>
       </div>
       <div className="flex-grow relative overflow-hidden">
           {content}

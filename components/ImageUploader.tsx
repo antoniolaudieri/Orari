@@ -49,7 +49,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onAnalyze, isLoadi
   return (
     <div className="bg-gray-800/50 p-4 sm:p-6 rounded-2xl ring-1 ring-white/10">
       <div className="flex flex-col sm:flex-row items-center gap-6">
-        <div className="w-full sm:w-1/3 h-40 flex-shrink-0 flex items-center justify-center border-2 border-dashed border-gray-600 rounded-lg bg-gray-900/50 overflow-hidden">
+        <div className="w-full sm:w-1/3 h-36 sm:h-40 flex-shrink-0 flex items-center justify-center border-2 border-dashed border-gray-600 rounded-lg bg-gray-900/50 overflow-hidden">
           {preview ? (
             <img src={preview} alt="Anteprima orario" className="h-full w-full object-contain" />
           ) : (

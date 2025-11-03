@@ -63,10 +63,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose, ent
                     <p className="font-semibold text-white truncate">{entry.dateRange}</p>
                     <p className="text-xs text-gray-400 truncate">{entry.summary}</p>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button onClick={() => onLoad(entry.id)} className="px-3 py-1.5 text-sm bg-teal-500 text-white font-semibold rounded-md hover:bg-teal-600 transition-colors transform hover:scale-105">Carica</button>
-                    <button onClick={() => onDelete(entry.id)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/50 rounded-md transition-colors transform hover:scale-110">
+                  <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-0 w-full sm:w-auto flex-shrink-0">
+                    <button onClick={() => onLoad(entry.id)} className="px-3 py-2 text-sm bg-teal-500 text-white font-semibold rounded-md hover:bg-teal-600 transition-colors transform hover:scale-105 w-full sm:w-auto">Carica</button>
+                    <button onClick={() => onDelete(entry.id)} className="px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-900/50 rounded-md transition-colors transform hover:scale-105 w-full sm:w-auto flex items-center justify-center gap-2">
                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                       <span className="sm:hidden font-semibold">Elimina</span>
                     </button>
                   </div>
                 </li>
