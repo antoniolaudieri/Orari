@@ -23,7 +23,16 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose, ent
   if (!isOpen && !isShowing) return null;
 
 
-  const sortedEntries = [...entries].sort((a, b) => b.id - a.id);
+  const sortedEntries = [...entries].sort((a, b) => {
+    // Attempt to parse start date from dateRange for more accurate sorting
+    try {
+        const dateA = new Date(a.schedule[0].date);
+        const dateB = new Date(b.schedule[0].date);
+        return dateB.getTime() - dateA.getTime();
+    } catch (e) {
+        return b.id - a.id; // Fallback to ID sort
+    }
+  });
 
   return (
     <div className="fixed inset-0 z-40" onClick={onClose}>
@@ -35,7 +44,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose, ent
         <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-shrink-0">
           <h2 className="text-lg font-bold text-teal-300">Storico Analisi</h2>
           <button onClick={onClose} className="p-1.5 rounded-full text-gray-400 hover:bg-slate-700 hover:text-white transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
         <div className="overflow-y-auto p-4">
@@ -44,10 +53,14 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose, ent
               {sortedEntries.map((entry, index) => (
                 <li key={entry.id} className="bg-slate-900/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-center gap-4 ring-1 ring-slate-700 opacity-0 animate-slideInUp" style={{ animationDelay: `${index * 75}ms`}}>
                   <div className="w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0 bg-slate-800/50 rounded-md overflow-hidden flex items-center justify-center ring-1 ring-slate-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
+                     {entry.imageData && entry.mimeType ? (
+                       <img src={`data:${entry.mimeType};base64,${entry.imageData}`} alt={`Anteprima per ${entry.dateRange}`} className="w-full h-full object-cover" />
+                     ) : (
+                       <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
+                     )}
                   </div>
-                  <div className="flex-1 text-center sm:text-left">
-                    <p className="font-semibold text-white">{entry.dateRange}</p>
+                  <div className="flex-1 text-center sm:text-left min-w-0">
+                    <p className="font-semibold text-white truncate">{entry.dateRange}</p>
                     <p className="text-xs text-gray-400 truncate">{entry.summary}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">

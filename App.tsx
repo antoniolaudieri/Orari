@@ -97,6 +97,13 @@ const App: React.FC = () => {
     const calendarRef = useRef<HTMLDivElement>(null);
 
     // Memoized values
+    const imagePreview = useMemo(() => {
+        if (currentAnalysis?.imageData && currentAnalysis.mimeType) {
+            return `data:${currentAnalysis.mimeType};base64,${currentAnalysis.imageData}`;
+        }
+        return null;
+    }, [currentAnalysis]);
+
     const weekStartDate = useMemo(() => getWeekStartDate(new Date(currentDate)), [currentDate]);
     const weekDays = useMemo(() => getWeekDays(weekStartDate), [weekStartDate]);
     const weekSchedule: DaySchedule[] = useMemo(() => {
@@ -168,16 +175,6 @@ const App: React.FC = () => {
     }, []);
 
     // Handlers
-    const fileToGenerativePart = async (file: File) => {
-        const base64EncodedData = await createImageThumbnail(file, 1024, 1024);
-        return {
-            inlineData: {
-                data: base64EncodedData,
-                mimeType: file.type,
-            },
-        };
-    };
-
     const handleAnalyze = useCallback(async (file: File) => {
         if (!ai) {
             setError('La chiave API non è configurata correttamente. Vai nelle impostazioni.');
@@ -189,7 +186,14 @@ const App: React.FC = () => {
         setCurrentAnalysis(null);
 
         try {
-            const imagePart = await fileToGenerativePart(file);
+            const thumbnailBase64 = await createImageThumbnail(file, 1024, 1024);
+            const imagePart = {
+                inlineData: {
+                    data: thumbnailBase64,
+                    mimeType: file.type,
+                },
+            };
+
             const response = await ai.models.generateContent({
                 model: geminiModel,
                 contents: { parts: [imagePart] },
@@ -214,10 +218,12 @@ const App: React.FC = () => {
             const analysisStartDate = new Date(parsedResult.schedule[0].date);
             setCurrentDate(analysisStartDate);
 
-            const analysisResult = {
+            const analysisResult: Omit<AnalysisEntry, 'id'> = {
                 dateRange: parsedResult.dateRange,
                 schedule: parsedResult.schedule,
                 summary: parsedResult.summary,
+                imageData: thumbnailBase64,
+                mimeType: file.type,
             };
 
             const savedEntry = await saveAnalysisToHistory(analysisResult);
@@ -258,6 +264,7 @@ const App: React.FC = () => {
         } catch(e: any) {
             console.error("Failed to save analysis:", e);
             setError(`Impossibile salvare l'analisi: ${e.message}`);
+            // Return a local-only version if API fails
             return { id: Date.now(), ...analysisResult };
         }
     };
@@ -270,7 +277,8 @@ const App: React.FC = () => {
             setAnalysisHistory(data);
         } catch(e: any) {
              console.error("Failed to fetch history:", e);
-             setError(`Impossibile caricare lo storico: ${e.message}`);
+             // Don't show an error for this, as it might just be a network issue on load
+             // setError(`Impossibile caricare lo storico: ${e.message}`);
         }
     };
     
@@ -492,7 +500,7 @@ const App: React.FC = () => {
                  {error && <ErrorDisplay message={error} />}
 
                 <main className="space-y-6">
-                    <ImageUploader onAnalyze={handleAnalyze} isLoading={isLoading} initialPreview={null}/>
+                    <ImageUploader onAnalyze={handleAnalyze} isLoading={isLoading} initialPreview={imagePreview}/>
                    
                     {hasScheduleThisWeek && <AnalysisSummary summary={currentAnalysis?.summary ?? null} />}
                     

@@ -7,6 +7,8 @@ interface AnalysisPayload {
         dateRange: string;
         schedule: DaySchedule[];
         summary: string;
+        imageData?: string;
+        mimeType?: string;
     };
 }
 
@@ -29,6 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             dateRange: analysisResult.dateRange,
             schedule: analysisResult.schedule,
             summary: analysisResult.summary,
+            imageData: analysisResult.imageData,
+            mimeType: analysisResult.mimeType,
         };
 
         const newEntry = await addHistory(userId, historyEntry);
