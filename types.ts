@@ -1,3 +1,5 @@
+import type { HarmCategory, HarmBlockThreshold } from '@google/genai';
+
 export interface Shift {
   start: string;
   end: string;
@@ -18,3 +20,8 @@ export interface AnalysisEntry {
   imageData?: string; // Base64 encoded image data - Now optional
   mimeType?: string; // Now optional
 }
+
+export type SafetySetting = {
+  category: HarmCategory;
+  threshold: HarmBlockThreshold;
+};
