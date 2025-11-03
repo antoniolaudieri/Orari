@@ -70,13 +70,16 @@ export async function updateHistory(id: number, userId: string, entry: { schedul
     }
     const currentEntry = currentResult.rows[0];
 
-    const updatedSchedule = entry.schedule ? JSON.stringify(entry.schedule) : currentEntry.schedule;
-    const updatedSummary = entry.summary ?? currentEntry.summary;
-    const updatedDateRange = entry.dateRange ?? currentEntry.date_range;
+    const scheduleToUpdate = entry.schedule ?? currentEntry.schedule;
+    const summaryToUpdate = entry.summary ?? currentEntry.summary;
+    const dateRangeToUpdate = entry.dateRange ?? currentEntry.date_range;
 
     const result = await pool.sql`
         UPDATE history
-        SET schedule = ${updatedSchedule}, summary = ${updatedSummary}, date_range = ${updatedDateRange}
+        SET 
+            schedule = ${JSON.stringify(scheduleToUpdate)}, 
+            summary = ${summaryToUpdate}, 
+            date_range = ${dateRangeToUpdate}
         WHERE id = ${id} AND user_id = ${userId}
         RETURNING id, date_range, schedule, summary, image_data, mime_type;
     `;
